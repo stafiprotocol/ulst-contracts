@@ -14,14 +14,14 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
     using SafeERC20 for IERC20;
 
     address public govStakeManagerAddress;
-    address public validatorShareAddress;
+    address public govOracleAddress;
     address public stakeTokenAddress;
 
     address public stakeManagerLogicAddress;
     address public stakePoolLogicAddress;
 
     address public factoryAdmin;
-    mapping(address => NetworkContracts) public networkContractsOfLsdToken;
+    mapping(address => NetworkContracts) internal networkContractsOfLsdToken;
     mapping(address => address[]) private lsdTokensOf;
     mapping(address => uint256) public totalClaimedLsdToken;
 
@@ -40,7 +40,7 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
     function initialize(
         address _factoryAdmin,
         address _govStakeManagerAddress,
-        address _validatorShareAddress,
+        address _govOracleAddress,
         address _stakeTokenAddress,
         address _stakeManagerLogicAddress,
         address _stakePoolLogicAddress
@@ -51,7 +51,7 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
 
         factoryAdmin = _factoryAdmin;
         govStakeManagerAddress = _govStakeManagerAddress;
-        validatorShareAddress = _validatorShareAddress;
+        govOracleAddress = _govOracleAddress;
         stakeTokenAddress = _stakeTokenAddress;
         stakeManagerLogicAddress = _stakeManagerLogicAddress;
         stakePoolLogicAddress = _stakePoolLogicAddress;
@@ -67,6 +67,10 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
 
     function lsdTokensOfCreater(address _creater) public view returns (address[] memory) {
         return lsdTokensOf[_creater];
+    }
+
+    function getNetworkContracts(address _lsdToken) public view returns (NetworkContracts memory) {
+        return networkContractsOfLsdToken[_lsdToken];
     }
 
     // ------------ settings ------------
