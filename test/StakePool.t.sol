@@ -8,9 +8,8 @@ import {StakePool} from "../src/StakePool.sol";
 import {LsdToken} from "../src/LsdToken.sol";
 import {LsdNetworkFactory} from "../src/LsdNetworkFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {IGovInstantManager} from "../src/interfaces/IGovInstantManager.sol";
+import {IOndoInstantManager, IOndoOracle} from "../src/interfaces/Ondo.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IGovOracle} from "../src/interfaces/IGovOracle.sol";
 import {ILsdNetworkFactory} from "../src/interfaces/ILsdNetworkFactory.sol";
 import {ITestUSDC} from "./testUSDC.sol";
 
@@ -55,7 +54,7 @@ contract FactoryTest is Test {
             // Mock registration for stake pool
             IOndoIDRegistry mockRegistryImpl = new MockIOndoIDRegistry();
             vm.etch(ONDO_Registry, address(mockRegistryImpl).code);
-            address rwaToken = IGovInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
+            address rwaToken = IOndoInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
             IOndoIDRegistry(ONDO_Registry).getRegisteredID(rwaToken, address(stakePool));
         }
 

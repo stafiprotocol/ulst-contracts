@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IStakePool.sol";
-import "./interfaces/IGovInstantManager.sol";
+import "./interfaces/Ondo.sol";
 import "./base/Ownable.sol";
 
 contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
@@ -60,7 +60,7 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     }
 
     function getDelegated() external view override returns (uint256) {
-        address token = IGovInstantManager(govInstantManagerAddress).rwaToken();
+        address token = IOndoInstantManager(govInstantManagerAddress).rwaToken();
         return IERC20(token).balanceOf(address(this));
     }
 
@@ -70,7 +70,7 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         // TODO: calc minimumRwaReceived before delegate
         uint256 minimumRwaReceived = 0;
         IERC20(_depositToken).safeIncreaseAllowance(govInstantManagerAddress, _amount);
-        return IGovInstantManager(govInstantManagerAddress).subscribe(_depositToken, _amount, minimumRwaReceived);
+        return IOndoInstantManager(govInstantManagerAddress).subscribe(_depositToken, _amount, minimumRwaReceived);
     }
 
     function undelegate(address _receivingToken, uint256 _claimAmount)
@@ -81,9 +81,9 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     {
         // TODO: calc minimumTokenReceived before delegate
         uint256 minimumTokenReceived = 0;
-        address rwaToken = IGovInstantManager(govInstantManagerAddress).rwaToken();
+        address rwaToken = IOndoInstantManager(govInstantManagerAddress).rwaToken();
         IERC20(rwaToken).safeIncreaseAllowance(govInstantManagerAddress, _claimAmount);
-        return IGovInstantManager(govInstantManagerAddress).redeem(_claimAmount, _receivingToken, minimumTokenReceived);
+        return IOndoInstantManager(govInstantManagerAddress).redeem(_claimAmount, _receivingToken, minimumTokenReceived);
     }
 
     function withdrawForStaker(address _receivingToken, address _staker, uint256 _amount)
