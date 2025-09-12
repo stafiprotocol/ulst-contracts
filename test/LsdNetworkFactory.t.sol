@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test, console, Vm} from "forge-std/Test.sol";
+import "./ondoErrors.sol";
 import {StakeManager} from "../src/StakeManager.sol";
 import {StakePool} from "../src/StakePool.sol";
 import {LsdToken} from "../src/LsdToken.sol";
@@ -11,6 +12,7 @@ import {IGovInstantManager} from "../src/interfaces/IGovInstantManager.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IGovOracle} from "../src/interfaces/IGovOracle.sol";
 import {ILsdNetworkFactory} from "../src/interfaces/ILsdNetworkFactory.sol";
+import {ITestUSDC} from "./testUSDC.sol";
 
 contract FactoryTest is Test {
     using SafeERC20 for IERC20;
@@ -26,7 +28,7 @@ contract FactoryTest is Test {
     receive() external payable {}
 
     function setUp() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 22269346);
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")));
 
         // Deploy logic contracts
         StakeManager stakeManagerLogic = new StakeManager();
@@ -88,18 +90,21 @@ contract FactoryTest is Test {
         assertEq(stakeManager.currentEra(), 0);
         assertEq(stakeManager.rate(), 1e18);
 
-        address whale = 0x22A460a317dc399247E1f33fB3bFBf0daa5b965e;
-        console.log("Whale USDC balance: ", IERC20(USDC).balanceOf(whale));
+        uint256 stakeAmount = 100e6;
+        {
+            // mint 100 USDC to stake pool for testing
+            ITestUSDC usdc = ITestUSDC(USDC);
+            vm.prank(usdc.masterMinter());
+            usdc.configureMinter(address(this), type(uint256).max);
+            usdc.mint(address(this), stakeAmount);
+        }
 
-        // Impersonate whale
-        vm.startPrank(whale);
         // Test staking functionality
-        uint256 stakeAmount = 4_000_000_000;
-        IERC20(USDC).safeIncreaseAllowance(address(stakeManager), 10 ** 28);
+        IERC20(USDC).safeIncreaseAllowance(address(stakeManager), stakeAmount);
         stakeManager.stake(USDC, stakeAmount);
 
         // Verify staking results
-        assertEq(lsdToken.balanceOf(whale), stakeAmount);
+        assertEq(lsdToken.balanceOf(address(this)), stakeAmount);
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), stakeAmount);
         assertEq(stakeManager.latestEra(), 0);
         assertEq(stakeManager.currentEra(), 0);
@@ -111,7 +116,7 @@ contract FactoryTest is Test {
         stakeManager.unstake(USDC, unstakeAmount);
 
         // Verify unstaking results
-        assertEq(lsdToken.balanceOf(whale), stakeAmount - unstakeAmount);
+        assertEq(lsdToken.balanceOf(address(this)), stakeAmount - unstakeAmount);
 
         console.log("Unbonding duration: ", stakeManager.unbondingDuration());
         console.log("Era seconds: ", stakeManager.eraSeconds());
