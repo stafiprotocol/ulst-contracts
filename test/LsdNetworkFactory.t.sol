@@ -26,6 +26,7 @@ contract FactoryTest is Test {
     receive() external payable {}
 
     function setUp() public {
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 22269346);
 
         // Deploy logic contracts
         StakeManager stakeManagerLogic = new StakeManager();
@@ -46,15 +47,6 @@ contract FactoryTest is Test {
         );
     }
 
-    event Stake(address staker, address poolAddress, uint256 tokenAmount, uint256 lsdTokenAmount);
-    event Settle(uint256 indexed era, address indexed pool);
-    event Delegate(address pool, address validator, uint256 amount);
-
-    error OutOfFund();
-    error NotVoter();
-    error ZeroWithdrawAmount();
-
-    // forge test --fork-url=$RPC_URL --block-number 23309397 --match-test test_create --match-path ./test/LsdNetworkFactory.t.sol -vvvvv 
     function test_create() public {
         // Test factory admin is set correctly
         assertEq(factory.factoryAdmin(), admin);
@@ -62,7 +54,6 @@ contract FactoryTest is Test {
         // Test creating a new LSD network
         string memory tokenName = "Test LSD Token";
         string memory tokenSymbol = "TLSD";
-        address networkAdmin = address(this);
 
         // Create the LSD network using real contract addresses
         factory.createLsdNetwork(

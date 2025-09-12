@@ -73,6 +73,8 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     function undelegate(address _receivingToken, uint256 _claimAmount) external override onlyStakeManager returns (uint256) {
         // TODO: calc minimumTokenReceived before delegate
         uint256 minimumTokenReceived = 0;
+        address rwaToken = IGovInstantManager(govInstantManagerAddress).rwaToken();
+        IERC20(rwaToken).safeIncreaseAllowance(govInstantManagerAddress, _claimAmount);
         return IGovInstantManager(govInstantManagerAddress).redeem(_claimAmount, _receivingToken, minimumTokenReceived);
     }
 
