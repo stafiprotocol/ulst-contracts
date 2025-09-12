@@ -13,7 +13,8 @@ interface ILsdNetworkFactory is Errors {
 
     event LsdNetwork(NetworkContracts contracts);
 
-    function createLsdNetwork(string memory _lsdTokenName,
+    function createLsdNetwork(
+        string memory _lsdTokenName,
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress

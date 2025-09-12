@@ -17,7 +17,7 @@ contract FactoryTest is Test {
 
     LsdNetworkFactory public factory;
     address admin = address(1);
-    
+
     // Real contract addresses for production testing
     address constant OUSG_INSTANT_MANAGER = 0x93358db73B6cd4b98D89c8F5f230E81a95c2643a;
     address constant ONDO_ORACLE = 0x9Cad45a8BF0Ed41Ff33074449B357C7a1fAb4094;
@@ -38,38 +38,28 @@ contract FactoryTest is Test {
 
         // Initialize factory with all required parameters
         factory.initialize(
-            admin,
-            OUSG_INSTANT_MANAGER,
-            ONDO_ORACLE,   
-            USDC,     
-            address(stakeManagerLogic),
-            address(stakePoolLogic)   
+            admin, OUSG_INSTANT_MANAGER, ONDO_ORACLE, USDC, address(stakeManagerLogic), address(stakePoolLogic)
         );
     }
 
     function test_create() public {
         // Test factory admin is set correctly
         assertEq(factory.factoryAdmin(), admin);
-        
+
         // Test creating a new LSD network
         string memory tokenName = "Test LSD Token";
         string memory tokenSymbol = "TLSD";
 
         // Create the LSD network using real contract addresses
-        factory.createLsdNetwork(
-            tokenName, 
-            tokenSymbol, 
-            OUSG_INSTANT_MANAGER, 
-            ONDO_ORACLE
-        );
+        factory.createLsdNetwork(tokenName, tokenSymbol, OUSG_INSTANT_MANAGER, ONDO_ORACLE);
 
         // Verify the LSD token was created and stored
         address[] memory createdTokens = factory.lsdTokensOfCreater(address(this));
         assertEq(createdTokens.length, 1);
-        
+
         address lsdTokenAddr = createdTokens[0];
         LsdToken lsdToken = LsdToken(lsdTokenAddr);
-        
+
         // Verify token name and symbol
         assertEq(lsdToken.name(), tokenName);
         assertEq(lsdToken.symbol(), tokenSymbol);
@@ -78,7 +68,7 @@ contract FactoryTest is Test {
         ILsdNetworkFactory.NetworkContracts memory contracts = factory.getNetworkContracts(lsdTokenAddr);
         address stakeManagerAddr = contracts._stakeManager;
         address stakePoolAddr = contracts._stakePool;
-        
+
         console.log("StakeManager: %s", stakeManagerAddr);
         console.log("StakePool: %s", stakePoolAddr);
         console.log("LSD Token: %s", lsdTokenAddr);
@@ -105,7 +95,7 @@ contract FactoryTest is Test {
         vm.startPrank(whale);
         // Test staking functionality
         uint256 stakeAmount = 4_000_000_000;
-        IERC20(USDC).safeIncreaseAllowance(address(stakeManager), 10**28);
+        IERC20(USDC).safeIncreaseAllowance(address(stakeManager), 10 ** 28);
         stakeManager.stake(USDC, stakeAmount);
 
         // Verify staking results

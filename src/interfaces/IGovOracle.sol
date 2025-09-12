@@ -2,5 +2,5 @@
 pragma solidity ^0.8.20;
 
 interface IGovOracle {
-  function getAssetPrice(address token) external view returns (uint256 price);
+    function getAssetPrice(address token) external view returns (uint256 price);
 }

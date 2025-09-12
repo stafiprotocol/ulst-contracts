@@ -37,7 +37,10 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         address _govOracleAddress,
         address _owner
     ) external initializer {
-        if (_stakeManagerAddress == address(0) || _govInstantManagerAddress == address(0) || _govOracleAddress == address(0) || _owner == address(0)) {
+        if (
+            _stakeManagerAddress == address(0) || _govInstantManagerAddress == address(0)
+                || _govOracleAddress == address(0) || _owner == address(0)
+        ) {
             revert AddressNotAllowed();
         }
 
@@ -70,7 +73,12 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         return IGovInstantManager(govInstantManagerAddress).subscribe(_depositToken, _amount, minimumRwaReceived);
     }
 
-    function undelegate(address _receivingToken, uint256 _claimAmount) external override onlyStakeManager returns (uint256) {
+    function undelegate(address _receivingToken, uint256 _claimAmount)
+        external
+        override
+        onlyStakeManager
+        returns (uint256)
+    {
         // TODO: calc minimumTokenReceived before delegate
         uint256 minimumTokenReceived = 0;
         address rwaToken = IGovInstantManager(govInstantManagerAddress).rwaToken();
@@ -78,7 +86,11 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         return IGovInstantManager(govInstantManagerAddress).redeem(_claimAmount, _receivingToken, minimumTokenReceived);
     }
 
-    function withdrawForStaker(address _receivingToken, address _staker, uint256 _amount) external override onlyStakeManager {
+    function withdrawForStaker(address _receivingToken, address _staker, uint256 _amount)
+        external
+        override
+        onlyStakeManager
+    {
         if (_staker == address(0)) revert AddressNotAllowed();
         if (_amount > 0) {
             IERC20(_receivingToken).safeTransfer(_staker, _amount);

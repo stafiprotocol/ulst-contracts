@@ -135,7 +135,11 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
 
         (bool success, bytes memory data) = contracts._stakePool.call(
             abi.encodeWithSelector(
-                StakePool.initialize.selector, contracts._stakeManager, _govInstantManagerAddress, _govOracleAddress, _networkAdmin
+                StakePool.initialize.selector,
+                contracts._stakeManager,
+                _govInstantManagerAddress,
+                _govOracleAddress,
+                _networkAdmin
             )
         );
         if (!success) {
@@ -144,11 +148,7 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
 
         (success, data) = contracts._stakeManager.call(
             abi.encodeWithSelector(
-                StakeManager.initialize.selector,
-                contracts._lsdToken,
-                contracts._stakePool,
-                _networkAdmin,
-                this
+                StakeManager.initialize.selector, contracts._lsdToken, contracts._stakePool, _networkAdmin, this
             )
         );
         if (!success) {

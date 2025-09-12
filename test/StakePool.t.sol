@@ -13,14 +13,11 @@ import {IGovOracle} from "../src/interfaces/IGovOracle.sol";
 import {ILsdNetworkFactory} from "../src/interfaces/ILsdNetworkFactory.sol";
 
 interface IOndoIDRegistry {
-  function getRegisteredID(
-    address rwaToken,
-    address user
-  ) external view returns (bytes32 userID);
+    function getRegisteredID(address rwaToken, address user) external view returns (bytes32 userID);
 }
 
 contract MockIOndoIDRegistry is IOndoIDRegistry {
-    function getRegisteredID(address /* rwaToken */, address /* user */) external pure returns (bytes32 userID) {
+    function getRegisteredID(address, /* rwaToken */ address /* user */ ) external pure returns (bytes32 userID) {
         return bytes32(0x4f55534700000000ea17b6d53c96e90000000000000000000000000000000000);
     }
 }
@@ -30,7 +27,7 @@ contract FactoryTest is Test {
 
     address admin = address(1);
     address manager = address(2);
-    
+
     // Real contract addresses for production testing
     address constant OUSG_INSTANT_MANAGER = 0x93358db73B6cd4b98D89c8F5f230E81a95c2643a;
     address constant ONDO_ORACLE = 0x9Cad45a8BF0Ed41Ff33074449B357C7a1fAb4094;
@@ -60,16 +57,11 @@ contract FactoryTest is Test {
             IOndoIDRegistry(ONDO_Registry).getRegisteredID(rwaToken, address(stakePool));
         }
 
-        stakePool.initialize(
-            manager,
-            OUSG_INSTANT_MANAGER,
-            ONDO_ORACLE,   
-            admin
-        );
+        stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
 
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
         assertEq(stakePool.getDelegated(), 0);
-        
+
         vm.startPrank(manager);
         stakePool.delegate(USDC, usdcAmount);
         assertGt(stakePool.getDelegated(), 0);
@@ -83,7 +75,7 @@ contract FactoryTest is Test {
         stakePool.withdrawForStaker(USDC, address(this), receivedUsdcAmount);
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
         assertGe(IERC20(USDC).balanceOf(address(this)), receivedUsdcAmount);
-        
+
         console.log("Test completed successfully!");
     }
 }
@@ -97,82 +89,77 @@ interface IUSDC {
 }
 
 interface IBaseRWAManagerErrors {
-  /// Error emitted when the token address is zero
-  error TokenAddressCantBeZero();
+    /// Error emitted when the token address is zero
+    error TokenAddressCantBeZero();
 
-  /// Error emitted when the token is not accepted for subscription
-  error TokenNotAccepted();
+    /// Error emitted when the token is not accepted for subscription
+    error TokenNotAccepted();
 
-  /// Error emitted when the deposit amount is too small
-  error DepositAmountTooSmall();
+    /// Error emitted when the deposit amount is too small
+    error DepositAmountTooSmall();
 
-  /// Error emitted when rwa amount is below the `minimumRwaReceived` in a subscription
-  error RwaReceiveAmountTooSmall();
+    /// Error emitted when rwa amount is below the `minimumRwaReceived` in a subscription
+    error RwaReceiveAmountTooSmall();
 
-  /// Error emitted when the user is not registered with the ID registry
-  error UserNotRegistered();
+    /// Error emitted when the user is not registered with the ID registry
+    error UserNotRegistered();
 
-  /// Error emitted when the redemption amount is too small
-  error RedemptionAmountTooSmall();
+    /// Error emitted when the redemption amount is too small
+    error RedemptionAmountTooSmall();
 
-  /// Error emitted when the receive amount is below the `minimumReceiveAmount` in a redemption
-  error ReceiveAmountTooSmall();
+    /// Error emitted when the receive amount is below the `minimumReceiveAmount` in a redemption
+    error ReceiveAmountTooSmall();
 
-  /// Error emitted when attempting to set the `OndoTokenRouter` address to zero
-  error RouterAddressCantBeZero();
+    /// Error emitted when attempting to set the `OndoTokenRouter` address to zero
+    error RouterAddressCantBeZero();
 
-  /// Error emitted when attempting to set the `OndoOracle` address to zero
-  error OracleAddressCantBeZero();
+    /// Error emitted when attempting to set the `OndoOracle` address to zero
+    error OracleAddressCantBeZero();
 
-  /// Error emitted when attempting to set the `OndoCompliance` address to zero
-  error ComplianceAddressCantBeZero();
+    /// Error emitted when attempting to set the `OndoCompliance` address to zero
+    error ComplianceAddressCantBeZero();
 
-  /// Error emitted when attempting to set the `OndoIDRegistry` address to zero
-  error IDRegistryAddressCantBeZero();
+    /// Error emitted when attempting to set the `OndoIDRegistry` address to zero
+    error IDRegistryAddressCantBeZero();
 
-  /// Error emitted when attempting to set the `OndoRateLimiter` address to zero
-  error RateLimiterAddressCantBeZero();
+    /// Error emitted when attempting to set the `OndoRateLimiter` address to zero
+    error RateLimiterAddressCantBeZero();
 
-  /// Error emitted when attempting to set the `OndoFees` address to zero
-  error FeesAddressCantBeZero();
+    /// Error emitted when attempting to set the `OndoFees` address to zero
+    error FeesAddressCantBeZero();
 
-  /// Error emitted when attempting to set the `AdminSubscriptionChecker` address to zero
-  error AdminSubscriptionCheckerAddressCantBeZero();
+    /// Error emitted when attempting to set the `AdminSubscriptionChecker` address to zero
+    error AdminSubscriptionCheckerAddressCantBeZero();
 
-  /// Error emitted when the price of RWA token returned from the oracle is below the minimum price
-  error RWAPriceTooLow();
+    /// Error emitted when the price of RWA token returned from the oracle is below the minimum price
+    error RWAPriceTooLow();
 
-  /// Error emitted when the subscription functionality is paused
-  error SubscriptionsPaused();
+    /// Error emitted when the subscription functionality is paused
+    error SubscriptionsPaused();
 
-  /// Error emitted when the redemption functionality is paused
-  error RedemptionsPaused();
+    /// Error emitted when the redemption functionality is paused
+    error RedemptionsPaused();
 
-  /// Error emitted when the fee is greater than the redemption amount
-  error FeeGreaterThanRedemption();
+    /// Error emitted when the fee is greater than the redemption amount
+    error FeeGreaterThanRedemption();
 
-  /// Error emitted when the fee is greater than the subscription amount
-  error FeeGreaterThanSubscription();
+    /// Error emitted when the fee is greater than the subscription amount
+    error FeeGreaterThanSubscription();
 
+    // registry
 
+    /// Error thrown when the RWA token address is 0x0
+    error RWAAddressCannotBeZero();
 
+    /// Error thrown when the user address is 0x0
+    error AddressCannotBeZero();
 
+    /// Error thrown when the user address is already associated with the user ID
+    error AddressAlreadyAssociated();
 
+    /// Error thrown when attempting to set a user ID to 0x0
+    error InvalidUserId();
 
-  // registry
-
-   /// Error thrown when the RWA token address is 0x0
-  error RWAAddressCannotBeZero();
-
-  /// Error thrown when the user address is 0x0
-  error AddressCannotBeZero();
-
-  /// Error thrown when the user address is already associated with the user ID
-  error AddressAlreadyAssociated();
-
-  /// Error thrown when attempting to set a user ID to 0x0
-  error InvalidUserId();
-
-  /// Error thrown when the caller does not have the required role to set a user ID
-  error MissingRWAOrMasterConfigurerRole();
+    /// Error thrown when the caller does not have the required role to set a user ID
+    error MissingRWAOrMasterConfigurerRole();
 }
