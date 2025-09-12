@@ -6,9 +6,8 @@ import "./Rate.sol";
 import "./StakePoolManager.sol";
 import "./UnstakePoolManager.sol";
 import "./Protocol.sol";
-import "./DelegationBalancer.sol";
 
-abstract contract Manager is Era, Rate, StakePoolManager, UnstakePoolManager, Protocol, DelegationBalancer {
+abstract contract Manager is Era, Rate, StakePoolManager, UnstakePoolManager, Protocol {
     uint256 public constant MAX_VALIDATORS_LEN = 30;
 
     function _initManagerParams(
@@ -23,6 +22,5 @@ abstract contract Manager is Era, Rate, StakePoolManager, UnstakePoolManager, Pr
         _initRateParams(_rateChangeLimit);
         _initStakePoolParams(_poolAddress);
         _initUnstakeParams(_unbondingDuration);
-        _initDelegationBalancer();
     }
 }
