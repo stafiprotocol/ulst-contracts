@@ -40,6 +40,9 @@ contract FactoryTest is Test {
 
     address admin = address(1);
     address manager = address(2);
+    address rwaToken;
+    StakePool stakePool;
+    uint256 usdcAmount = 50_000e6;
 
     // Real contract addresses for production testing
     address constant OUSG_INSTANT_MANAGER = 0x93358db73B6cd4b98D89c8F5f230E81a95c2643a;
@@ -49,11 +52,11 @@ contract FactoryTest is Test {
 
     function setUp() public {
         vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 22269346);
-    }
 
-    function test_stake_pool() public {
-        uint256 usdcAmount = 50_000e6;
-        StakePool stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
+        rwaToken = IOndoInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
+
+        stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
+        stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
         {
             // mint 500 USDC to stake pool for testing
             ITestUSDC usdc = ITestUSDC(USDC);
@@ -66,12 +69,11 @@ contract FactoryTest is Test {
             // Mock registration for stake pool
             IOndoIDRegistry mockRegistryImpl = new MockIOndoIDRegistry();
             vm.etch(ONDO_Registry, address(mockRegistryImpl).code);
-            address rwaToken = IOndoInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
             IOndoIDRegistry(ONDO_Registry).getRegisteredID(rwaToken, address(stakePool));
         }
+    }
 
-        stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
-
+    function test_stake_pool() public {
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
         assertEq(stakePool.getDelegated(USDC), 0);
 
@@ -93,26 +95,6 @@ contract FactoryTest is Test {
     }
 
     function test_stake_pool_with_rewards() public {
-        uint256 usdcAmount = 50_000e6;
-        address rwaToken = IOndoInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
-
-        StakePool stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
-        stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
-        {
-            // mint 500 USDC to stake pool for testing
-            ITestUSDC usdc = ITestUSDC(USDC);
-            vm.prank(usdc.masterMinter());
-            usdc.configureMinter(address(this), type(uint256).max);
-            usdc.mint(address(stakePool), usdcAmount);
-        }
-
-        {
-            // Mock registration for stake pool
-            IOndoIDRegistry mockRegistryImpl = new MockIOndoIDRegistry();
-            vm.etch(ONDO_Registry, address(mockRegistryImpl).code);
-            IOndoIDRegistry(ONDO_Registry).getRegisteredID(rwaToken, address(stakePool));
-        }
-
         {
             // Mock oracle for stake pool
             MockOndoOracle mockOracle = new MockOndoOracle();
