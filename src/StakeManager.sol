@@ -9,6 +9,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IStakePool.sol";
 import "./interfaces/ILsdToken.sol";
 import "./base/Manager.sol";
+import {IOndoOracle} from "./interfaces/Ondo.sol";
 
 contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     // Custom errors to provide more descriptive revert messages.
@@ -32,9 +33,8 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    EnumerableSet.AddressSet private stablecoins;
+    address public stablecoin;
 
-    mapping(address => EnumerableSet.UintSet) validatorIdsOf;
     // pool => validator Id => max claimed nonce
     mapping(address => mapping(uint256 => uint256)) public maxClaimedNonceOf;
 
@@ -50,22 +50,22 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     );
     event Withdraw(address staker, address poolAddress, uint256 tokenAmount, int256[] unstakeIndexList);
     event ExecuteNewEra(uint256 indexed era, uint256 rate);
-    event Delegate(address pool, uint256 validator, uint256 amount);
-    event Undelegate(address pool, uint256 validator, uint256 amount);
-    event NewReward(address pool, uint256 amount);
-    event NewClaimedNonce(address pool, uint256 validator, uint256 nonce);
+    event NewReward(address poolAddress, uint256 newReward);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    function initialize(address _lsdToken, address _poolAddress, address _owner, address _factoryAddress)
-        external
-        virtual
-        initializer
-    {
+    function initialize(
+        address _lsdToken,
+        address _poolAddress,
+        address _stablecoin,
+        address _owner,
+        address _factoryAddress
+    ) external virtual initializer {
         _transferOwnership(_owner);
+        stablecoin = _stablecoin;
         _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 4, 0);
     }
 
@@ -77,33 +77,21 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         return _getInitializedVersion();
     }
 
-    function getstablecoins() public view returns (address[] memory) {
-        return stablecoins.values();
-    }
-
-    function addStablecoin(address _stablecoin) external onlyOwner {
-        if (!stablecoins.add(_stablecoin)) revert StablecoinDuplicated(_stablecoin);
-    }
-
-    function rmStablecoin(address _stablecoin) external onlyOwner {
-        if (!stablecoins.remove(_stablecoin)) revert StablecoinNotExist(_stablecoin);
-    }
-
     // ----- staker operation
 
-    function stake(address _stablecoin, uint256 _stakeAmount) external {
-        stakeWithPool(bondedPools.at(0), _stablecoin, _stakeAmount);
+    function stake(uint256 _stakeAmount) external {
+        stakeWithPool(bondedPools.at(0), _stakeAmount);
     }
 
-    function unstake(address _stablecoin, uint256 _lsdTokenAmount) external {
-        unstakeWithPool(bondedPools.at(0), _stablecoin, _lsdTokenAmount);
+    function unstake(uint256 _lsdTokenAmount) external {
+        unstakeWithPool(bondedPools.at(0), _lsdTokenAmount);
     }
 
-    function withdraw(address _stablecoin) external {
-        withdrawWithPool(bondedPools.at(0), _stablecoin);
+    function withdraw() external {
+        withdrawWithPool(bondedPools.at(0));
     }
 
-    function stakeWithPool(address _poolAddress, address _stablecoin, uint256 _stakeAmount) public {
+    function stakeWithPool(address _poolAddress, uint256 _stakeAmount) public {
         if (_stakeAmount < minStakeAmount) revert NotEnoughStakeAmount();
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
 
@@ -112,18 +100,17 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         // update pool
         PoolInfo storage poolInfo = poolInfoOf[_poolAddress];
         poolInfo.bond = poolInfo.bond + _stakeAmount;
-        poolInfo.active = poolInfo.active + _stakeAmount;
 
         // transfer stablecoin
-        IERC20(_stablecoin).safeTransferFrom(msg.sender, _poolAddress, _stakeAmount);
+        IERC20(stablecoin).safeTransferFrom(msg.sender, _poolAddress, _stakeAmount);
 
         // mint lsdToken
         ILsdToken(lsdToken).mint(msg.sender, lsdTokenAmount);
 
-        emit Stake(msg.sender, _poolAddress, _stablecoin, _stakeAmount, lsdTokenAmount);
+        emit Stake(msg.sender, _poolAddress, stablecoin, _stakeAmount, lsdTokenAmount);
     }
 
-    function unstakeWithPool(address _poolAddress, address _stablecoin, uint256 _lsdTokenAmount) public {
+    function unstakeWithPool(address _poolAddress, uint256 _lsdTokenAmount) public {
         if (_lsdTokenAmount == 0) revert ZeroUnstakeAmount();
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
         if (unstakesOfUser[msg.sender].length() >= UNSTAKE_TIMES_LIMIT) revert UnstakeTimesExceedLimit();
@@ -133,7 +120,6 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         // update pool
         PoolInfo storage poolInfo = poolInfoOf[_poolAddress];
         poolInfo.unbond = poolInfo.unbond + tokenAmount;
-        poolInfo.active = poolInfo.active - tokenAmount;
 
         // burn lsdToken
         ERC20Burnable(lsdToken).burnFrom(msg.sender, _lsdTokenAmount);
@@ -145,16 +131,16 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         unstakeAtIndex[willUseUnstakeIndex] = UnstakeInfo({
             era: currentEra(),
             pool: _poolAddress,
-            stablecoin: _stablecoin,
+            stablecoin: stablecoin,
             receiver: msg.sender,
             amount: tokenAmount
         });
         unstakesOfUser[msg.sender].add(willUseUnstakeIndex);
 
-        emit Unstake(msg.sender, _poolAddress, _stablecoin, tokenAmount, _lsdTokenAmount, willUseUnstakeIndex);
+        emit Unstake(msg.sender, _poolAddress, stablecoin, tokenAmount, _lsdTokenAmount, willUseUnstakeIndex);
     }
 
-    function withdrawWithPool(address _poolAddress, address _stablecoin) public {
+    function withdrawWithPool(address _poolAddress) public {
         uint256 totalWithdrawAmount;
         uint256[] memory unstakeIndexList = getUnstakeIndexListOf(msg.sender);
         uint256 length = unstakesOfUser[msg.sender].length();
@@ -176,7 +162,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         }
 
         if (totalWithdrawAmount <= 0) revert ZeroWithdrawAmount();
-        IStakePool(_poolAddress).withdrawForStaker(_stablecoin, msg.sender, totalWithdrawAmount);
+        IStakePool(_poolAddress).withdrawForStaker(stablecoin, msg.sender, totalWithdrawAmount);
 
         emit Withdraw(msg.sender, _poolAddress, totalWithdrawAmount, emitUnstakeIndexList);
     }
@@ -194,73 +180,34 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         uint256 newTotalActive;
         address[] memory poolList = getBondedPools();
         for (uint256 i = 0; i < poolList.length; ++i) {
-            // address poolAddress = poolList[i];
+            address poolAddress = poolList[i];
+            PoolInfo memory poolInfo = poolInfoOf[poolAddress];
 
-            // uint256[] memory validators = getValidatorIdsOf(poolAddress);
+            // newReward
+            uint256 poolNewReward = IStakePool(poolAddress).getDelegated(stablecoin) - poolInfo.active;
+            emit NewReward(poolAddress, poolNewReward);
+            totalNewReward = totalNewReward + poolNewReward;
 
-            // // newReward
-            // uint256 poolNewReward = IStakePool(poolAddress).checkAndWithdrawRewards(validators);
-            // emit NewReward(poolAddress, poolNewReward);
-            // totalNewReward = totalNewReward + poolNewReward;
+            // bond or unbond
+            if (poolInfo.bond > poolInfo.unbond) {
+                uint256 needDelegate = poolInfo.bond - poolInfo.unbond;
+                IStakePool(poolAddress).delegate(stablecoin, needDelegate);
+            } else if (poolInfo.bond < poolInfo.unbond) {
+                uint256 needUndelegate = poolInfo.unbond - poolInfo.bond;
+                IStakePool(poolAddress).undelegate(stablecoin, needUndelegate);
+            }
 
-            // // unstakeClaimTokens
-            // for (uint256 j = 0; j < validators.length; ++j) {
-            //     uint256 oldClaimedNonce = maxClaimedNonceOf[poolAddress][validators[j]];
-            //     uint256 newClaimedNonce =
-            //         IStakePool(poolAddress).unstakeClaimTokens(validators[j], oldClaimedNonce);
-            //     if (newClaimedNonce > oldClaimedNonce) {
-            //         maxClaimedNonceOf[poolAddress][validators[j]] = newClaimedNonce;
+            // cal total active
+            uint256 newPoolActive = IStakePool(poolAddress).getDelegated(stablecoin);
+            newTotalActive = newTotalActive + newPoolActive;
 
-            //         emit NewClaimedNonce(poolAddress, validators[j], newClaimedNonce);
-            //     }
-            // }
+            // update pool state
+            poolInfo.active = newPoolActive;
+            poolInfo.era = latestEra;
+            poolInfo.bond = 0;
+            poolInfo.unbond = 0;
 
-            // // bond or unbond
-            // PoolInfo memory poolInfo = poolInfoOf[poolAddress];
-            // uint256 poolBondAndNewReward = poolInfo.bond + poolNewReward;
-            // if (poolBondAndNewReward > poolInfo.unbond) {
-            //     uint256 needDelegate = poolBondAndNewReward - poolInfo.unbond;
-            //     IStakePool(poolAddress).delegate(validators[0], needDelegate);
-
-            //     emit Delegate(poolAddress, validators[0], needDelegate);
-            // } else if (poolBondAndNewReward < poolInfo.unbond) {
-            //     uint256 needUndelegate = poolInfo.unbond - poolBondAndNewReward;
-
-            //     for (uint256 j = 0; j < validators.length; ++j) {
-            //         if (needUndelegate == 0) {
-            //             break;
-            //         }
-            //         uint256 totalStaked = IStakePool(poolAddress).getDelegated(validators[j]);
-
-            //         uint256 unbondAmount;
-            //         if (needUndelegate < totalStaked) {
-            //             unbondAmount = needUndelegate;
-            //             needUndelegate = 0;
-            //         } else {
-            //             unbondAmount = totalStaked;
-            //             needUndelegate = needUndelegate - totalStaked;
-            //         }
-
-            //         if (unbondAmount > 0) {
-            //             IStakePool(poolAddress).undelegate(validators[j], unbondAmount);
-
-            //             emit Undelegate(poolAddress, validators[j], unbondAmount);
-            //         }
-            //     }
-            //     if (needUndelegate != 0) revert NotEnoughAmountToUndelegate();
-            // }
-
-            // // cal total active
-            // uint256 newPoolActive = IStakePool(poolAddress).getTotalDelegated(validators);
-            // newTotalActive = newTotalActive + newPoolActive;
-
-            // // update pool state
-            // poolInfo.era = latestEra;
-            // poolInfo.active = newPoolActive;
-            // poolInfo.bond = 0;
-            // poolInfo.unbond = 0;
-
-            // poolInfoOf[poolAddress] = poolInfo;
+            poolInfoOf[poolAddress] = poolInfo;
         }
 
         // ditribute protocol fee

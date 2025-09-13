@@ -13,13 +13,15 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     // Custom errors to provide more descriptive revert messages.
     error FailedToWithdrawForStaker();
 
+    event Delegate(address pool, address stablecoin, uint256 amount);
+    event Undelegate(address pool, address rwaToken, uint256 amount);
     event WithdrawForStaker(address staker, address receivingToken, uint256 amount);
 
     using SafeERC20 for IERC20;
 
     address public stakeManagerAddress;
-    address public govInstantManagerAddress;
-    address public govOracleAddress;
+    IOndoInstantManager public ondoInstantManager;
+    IOndoOracle public ondoOracle;
 
     modifier onlyStakeManager() {
         if (stakeManagerAddress != msg.sender) revert CallerNotAllowed();
@@ -45,8 +47,8 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         }
 
         stakeManagerAddress = _stakeManagerAddress;
-        govInstantManagerAddress = _govInstantManagerAddress;
-        govOracleAddress = _govOracleAddress;
+        ondoInstantManager = IOndoInstantManager(_govInstantManagerAddress);
+        ondoOracle = IOndoOracle(_govOracleAddress);
 
         _transferOwnership(_owner);
     }
@@ -59,9 +61,17 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         return _getInitializedVersion();
     }
 
-    function getDelegated() external view override returns (uint256) {
-        address token = IOndoInstantManager(govInstantManagerAddress).rwaToken();
-        return IERC20(token).balanceOf(address(this));
+    function getDelegated(address _stablecoin) external view override returns (uint256) {
+        address rwaToken = ondoInstantManager.rwaToken();
+        uint256 rwaTokenPrice = ondoOracle.getAssetPrice(rwaToken);
+
+        uint256 rwaAmount = IERC20(rwaToken).balanceOf(address(this));
+        uint256 usdValue = (rwaAmount * rwaTokenPrice) / ondoInstantManager.RWA_NORMALIZER();
+
+        uint256 stablecoinPrice = ondoOracle.getAssetPrice(_stablecoin);
+        uint256 stablecoinAmount = (usdValue * 10 ** IERC20Metadata(_stablecoin).decimals()) / stablecoinPrice;
+
+        return stablecoinAmount;
     }
 
     // ------------ stakeManager ------------
@@ -69,21 +79,26 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     function delegate(address _depositToken, uint256 _amount) external override onlyStakeManager returns (uint256) {
         // TODO: calc minimumRwaReceived before delegate
         uint256 minimumRwaReceived = 0;
-        IERC20(_depositToken).safeIncreaseAllowance(govInstantManagerAddress, _amount);
-        return IOndoInstantManager(govInstantManagerAddress).subscribe(_depositToken, _amount, minimumRwaReceived);
+        IERC20(_depositToken).safeIncreaseAllowance(address(ondoInstantManager), _amount);
+        return ondoInstantManager.subscribe(_depositToken, _amount, minimumRwaReceived);
     }
 
-    function undelegate(address _receivingToken, uint256 _claimAmount)
+    function undelegate(address _receivingToken, uint256 _undelegateAmount)
         external
         override
         onlyStakeManager
         returns (uint256)
     {
-        // TODO: calc minimumTokenReceived before delegate
-        uint256 minimumTokenReceived = 0;
-        address rwaToken = IOndoInstantManager(govInstantManagerAddress).rwaToken();
-        IERC20(rwaToken).safeIncreaseAllowance(govInstantManagerAddress, _claimAmount);
-        return IOndoInstantManager(govInstantManagerAddress).redeem(_claimAmount, _receivingToken, minimumTokenReceived);
+        address rwaToken = ondoInstantManager.rwaToken();
+        uint256 receivingTokenPrice = ondoOracle.getAssetPrice(_receivingToken);
+        uint256 rwaTokenPrice = ondoOracle.getAssetPrice(rwaToken);
+
+        uint256 usdValue = (receivingTokenPrice * _undelegateAmount) / 10 ** IERC20Metadata(_receivingToken).decimals();
+        uint256 rwaAmount = (usdValue * ondoInstantManager.RWA_NORMALIZER()) / rwaTokenPrice;
+
+        IERC20(rwaToken).safeIncreaseAllowance(address(ondoInstantManager), rwaAmount);
+
+        return ondoInstantManager.redeem(rwaAmount, _receivingToken, _undelegateAmount - 100);
     }
 
     function withdrawForStaker(address _receivingToken, address _staker, uint256 _amount)

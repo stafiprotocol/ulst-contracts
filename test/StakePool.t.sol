@@ -23,6 +23,18 @@ contract MockIOndoIDRegistry is IOndoIDRegistry {
     }
 }
 
+contract MockOndoOracle is IOndoOracle {
+    mapping(address => uint256) public assetPrices;
+
+    function setAssetPrice(address asset, uint256 price) external {
+        assetPrices[asset] = price;
+    }
+
+    function getAssetPrice(address asset) external view returns (uint256) {
+        return assetPrices[asset];
+    }
+}
+
 contract FactoryTest is Test {
     using SafeERC20 for IERC20;
 
@@ -36,7 +48,7 @@ contract FactoryTest is Test {
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     function setUp() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")));
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 22269346);
     }
 
     function test_stake_pool() public {
@@ -61,22 +73,75 @@ contract FactoryTest is Test {
         stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
 
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
-        assertEq(stakePool.getDelegated(), 0);
+        assertEq(stakePool.getDelegated(USDC), 0);
 
         vm.startPrank(manager);
         stakePool.delegate(USDC, usdcAmount);
-        assertGt(stakePool.getDelegated(), 0);
+        assertGe(stakePool.getDelegated(USDC), usdcAmount - 100); // 100 is for calculation loss
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
 
-        stakePool.undelegate(USDC, stakePool.getDelegated());
+        stakePool.undelegate(USDC, usdcAmount);
         uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
         assertGe(receivedUsdcAmount, usdcAmount - 100); // 100 is for calculation loss
-        assertEq(stakePool.getDelegated(), 0);
+        assertEq(stakePool.getDelegated(USDC), 0);
 
         stakePool.withdrawForStaker(USDC, address(this), receivedUsdcAmount);
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
         assertGe(IERC20(USDC).balanceOf(address(this)), receivedUsdcAmount);
 
         console.log("Test completed successfully!");
+    }
+
+    function test_stake_pool_with_rewards() public {
+        uint256 usdcAmount = 50_000e6;
+        address rwaToken = IOndoInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
+
+        StakePool stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
+        stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
+        {
+            // mint 500 USDC to stake pool for testing
+            ITestUSDC usdc = ITestUSDC(USDC);
+            vm.prank(usdc.masterMinter());
+            usdc.configureMinter(address(this), type(uint256).max);
+            usdc.mint(address(stakePool), usdcAmount);
+        }
+
+        {
+            // Mock registration for stake pool
+            IOndoIDRegistry mockRegistryImpl = new MockIOndoIDRegistry();
+            vm.etch(ONDO_Registry, address(mockRegistryImpl).code);
+            IOndoIDRegistry(ONDO_Registry).getRegisteredID(rwaToken, address(stakePool));
+        }
+
+        {
+            // Mock oracle for stake pool
+            MockOndoOracle mockOracle = new MockOndoOracle();
+            vm.etch(ONDO_ORACLE, address(mockOracle).code);
+            MockOndoOracle(ONDO_ORACLE).setAssetPrice(USDC, 1000000000000000000);
+            MockOndoOracle(ONDO_ORACLE).setAssetPrice(rwaToken, 0x619234f3380033000);
+        }
+
+
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
+        assertEq(stakePool.getDelegated(USDC), 0);
+
+        vm.startPrank(manager);
+        stakePool.delegate(USDC, usdcAmount);
+
+        // add rewards by increasing rwa token price
+        console.log("Delegated amount before rewards: ", stakePool.getDelegated(USDC));
+        MockOndoOracle(ONDO_ORACLE).setAssetPrice(rwaToken, 0x6194f8a6903775000);
+        assertGt(stakePool.getDelegated(USDC), usdcAmount);
+        uint256 usdcAmountAfterRewards = stakePool.getDelegated(USDC);
+        console.log("Delegated amount after rewards: ", usdcAmountAfterRewards);
+
+        stakePool.undelegate(USDC, usdcAmountAfterRewards);
+        uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
+        assertGe(receivedUsdcAmount, usdcAmountAfterRewards - 100); // 100 is for calculation loss
+        assertEq(stakePool.getDelegated(USDC), 0);
+
+        console.log("Rewards amount: ", usdcAmountAfterRewards - usdcAmount);
+
+        console.log("Test test_stake_pool_with_rewards completed successfully!");
     }
 }

@@ -102,9 +102,12 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         string memory _lsdTokenName,
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
-        address _govOracleAddress
+        address _govOracleAddress,
+        address _stablecoin
     ) external override {
-        _createLsdNetwork(_lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, msg.sender);
+        _createLsdNetwork(
+            _lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, _stablecoin, msg.sender
+        );
     }
 
     function createLsdNetworkWithTimelock(
@@ -112,11 +115,14 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress,
+        address _stablecoin,
         uint256 minDelay,
         address[] memory proposers
     ) external override {
         address networkAdmin = address(new Timelock(minDelay, proposers, proposers, msg.sender));
-        _createLsdNetwork(_lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, networkAdmin);
+        _createLsdNetwork(
+            _lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, _stablecoin, networkAdmin
+        );
     }
 
     // ------------ helper ------------
@@ -126,6 +132,7 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress,
+        address _stablecoin,
         address _networkAdmin
     ) private {
         NetworkContracts memory contracts = deployNetworkContracts(_lsdTokenName, _lsdTokenSymbol);
@@ -148,7 +155,12 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
 
         (success, data) = contracts._stakeManager.call(
             abi.encodeWithSelector(
-                StakeManager.initialize.selector, contracts._lsdToken, contracts._stakePool, _networkAdmin, this
+                StakeManager.initialize.selector,
+                contracts._lsdToken,
+                contracts._stakePool,
+                _stablecoin,
+                _networkAdmin,
+                this
             )
         );
         if (!success) {

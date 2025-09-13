@@ -27,7 +27,7 @@ contract FactoryTest is Test {
     receive() external payable {}
 
     function setUp() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")));
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 22269346);
 
         // Deploy logic contracts
         StakeManager stakeManagerLogic = new StakeManager();
@@ -52,7 +52,7 @@ contract FactoryTest is Test {
         string memory tokenSymbol = "TLSD";
 
         // Create the LSD network using real contract addresses
-        factory.createLsdNetwork(tokenName, tokenSymbol, OUSG_INSTANT_MANAGER, ONDO_ORACLE);
+        factory.createLsdNetwork(tokenName, tokenSymbol, OUSG_INSTANT_MANAGER, ONDO_ORACLE, USDC);
 
         // Verify the LSD token was created and stored
         address[] memory createdTokens = factory.lsdTokensOfCreater(address(this));
@@ -100,7 +100,7 @@ contract FactoryTest is Test {
 
         // Test staking functionality
         IERC20(USDC).safeIncreaseAllowance(address(stakeManager), stakeAmount);
-        stakeManager.stake(USDC, stakeAmount);
+        stakeManager.stake(stakeAmount);
 
         // Verify staking results
         assertEq(lsdToken.balanceOf(address(this)), stakeAmount);
@@ -112,7 +112,7 @@ contract FactoryTest is Test {
         // Test unstaking functionality
         uint256 unstakeAmount = stakeAmount;
         lsdToken.approve(address(stakeManager), unstakeAmount);
-        stakeManager.unstake(USDC, unstakeAmount);
+        stakeManager.unstake(unstakeAmount);
 
         // Verify unstaking results
         assertEq(lsdToken.balanceOf(address(this)), stakeAmount - unstakeAmount);
@@ -124,7 +124,7 @@ contract FactoryTest is Test {
 
         // Test withdrawal
         uint256 preBalance = IERC20(USDC).balanceOf(address(stakePool));
-        stakeManager.withdraw(USDC);
+        stakeManager.withdraw();
         uint256 postBalance = IERC20(USDC).balanceOf(address(stakePool));
         console.log("Pre balance: ", preBalance);
         console.log("Post balance: ", postBalance);

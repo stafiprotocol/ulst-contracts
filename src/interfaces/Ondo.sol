@@ -12,6 +12,8 @@ interface IOndoInstantManager {
 
     // RWA token is an ERC20 compliant token
     function rwaToken() external view returns (address);
+
+    function RWA_NORMALIZER() external view returns (uint256);
 }
 
 interface IOndoOracle {

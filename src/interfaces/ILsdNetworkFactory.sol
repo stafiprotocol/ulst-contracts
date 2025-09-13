@@ -17,7 +17,8 @@ interface ILsdNetworkFactory is Errors {
         string memory _lsdTokenName,
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
-        address _govOracleAddress
+        address _govOracleAddress,
+        address _stablecoin
     ) external;
 
     function createLsdNetworkWithTimelock(
@@ -25,6 +26,7 @@ interface ILsdNetworkFactory is Errors {
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress,
+        address _stablecoin,
         uint256 minDelay,
         address[] memory proposers
     ) external;
