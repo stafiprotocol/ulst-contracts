@@ -47,7 +47,7 @@ abstract contract Rate is Ownable, IRateProvider {
     }
 
     function _calRate(uint256 _totalActive, uint256 _totalLst) internal view virtual returns (uint256) {
-        if (_totalLst == 0) {
+        if (_totalLst == 0 || _totalActive < _totalLst) {
             return EIGHTEEN_DECIMALS;
         }
         uint256 calRate = (_totalActive * EIGHTEEN_DECIMALS) / _totalLst;

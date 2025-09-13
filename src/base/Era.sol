@@ -10,7 +10,7 @@ abstract contract Era is Ownable {
     error WrongEraParameters(uint256 eraSeconds, uint256 eraOffset);
 
     uint256 public constant MIN_ERA_SECONDS = 600;
-    uint256 public constant MAX_ERA_SECONDS = 172800;
+    uint256 public constant MAX_ERA_SECONDS = 86400 * 2;
     uint256 public constant DEFAULT_ERA_SECONDS = 86400;
 
     uint256 public eraSeconds;

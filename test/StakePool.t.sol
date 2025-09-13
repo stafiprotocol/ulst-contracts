@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import {Test, console, Vm} from "forge-std/Test.sol";
-import "./ondoErrors.sol";
+import {console} from "forge-std/Test.sol";
 import {StakeManager} from "../src/StakeManager.sol";
 import {StakePool} from "../src/StakePool.sol";
 import {LsdToken} from "../src/LsdToken.sol";
@@ -12,65 +11,24 @@ import {IOndoInstantManager, IOndoOracle} from "../src/interfaces/Ondo.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ILsdNetworkFactory} from "../src/interfaces/ILsdNetworkFactory.sol";
 import {ITestUSDC} from "./testUSDC.sol";
+import {MyTest} from "./MyTest.sol";
 
-interface IOndoIDRegistry {
-    function getRegisteredID(address rwaToken, address user) external view returns (bytes32 userID);
-}
-
-contract MockIOndoIDRegistry is IOndoIDRegistry {
-    function getRegisteredID(address, /* rwaToken */ address /* user */ ) external pure returns (bytes32 userID) {
-        return bytes32(0x4f55534700000000ea17b6d53c96e90000000000000000000000000000000000);
-    }
-}
-
-contract MockOndoOracle is IOndoOracle {
-    mapping(address => uint256) public assetPrices;
-
-    function setAssetPrice(address asset, uint256 price) external {
-        assetPrices[asset] = price;
-    }
-
-    function getAssetPrice(address asset) external view returns (uint256) {
-        return assetPrices[asset];
-    }
-}
-
-contract FactoryTest is Test {
+contract StakePoolTest is MyTest {
     using SafeERC20 for IERC20;
 
     address admin = address(1);
     address manager = address(2);
-    address rwaToken;
     StakePool stakePool;
     uint256 usdcAmount = 50_000e6;
 
-    // Real contract addresses for production testing
-    address constant OUSG_INSTANT_MANAGER = 0x93358db73B6cd4b98D89c8F5f230E81a95c2643a;
-    address constant ONDO_ORACLE = 0x9Cad45a8BF0Ed41Ff33074449B357C7a1fAb4094;
-    address constant ONDO_Registry = 0xcf6958D69d535FD03BD6Df3F4fe6CDcd127D97df;
-    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
     function setUp() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 22269346);
-
-        rwaToken = IOndoInstantManager(OUSG_INSTANT_MANAGER).rwaToken();
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")));
 
         stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
         stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
-        {
-            // mint 500 USDC to stake pool for testing
-            ITestUSDC usdc = ITestUSDC(USDC);
-            vm.prank(usdc.masterMinter());
-            usdc.configureMinter(address(this), type(uint256).max);
-            usdc.mint(address(stakePool), usdcAmount);
-        }
-
-        {
-            // Mock registration for stake pool
-            IOndoIDRegistry mockRegistryImpl = new MockIOndoIDRegistry();
-            vm.etch(ONDO_Registry, address(mockRegistryImpl).code);
-            IOndoIDRegistry(ONDO_Registry).getRegisteredID(rwaToken, address(stakePool));
-        }
+        airdropUSDC(address(stakePool), usdcAmount);
+        mockIDRegistry();
+        mockOracle();
     }
 
     function test_stake_pool() public {
@@ -95,15 +53,6 @@ contract FactoryTest is Test {
     }
 
     function test_stake_pool_with_rewards() public {
-        {
-            // Mock oracle for stake pool
-            MockOndoOracle mockOracle = new MockOndoOracle();
-            vm.etch(ONDO_ORACLE, address(mockOracle).code);
-            MockOndoOracle(ONDO_ORACLE).setAssetPrice(USDC, 1000000000000000000);
-            MockOndoOracle(ONDO_ORACLE).setAssetPrice(rwaToken, 0x619234f3380033000);
-        }
-
-
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
         assertEq(stakePool.getDelegated(USDC), 0);
 
@@ -112,7 +61,7 @@ contract FactoryTest is Test {
 
         // add rewards by increasing rwa token price
         console.log("Delegated amount before rewards: ", stakePool.getDelegated(USDC));
-        MockOndoOracle(ONDO_ORACLE).setAssetPrice(rwaToken, 0x6194f8a6903775000);
+        mockOndoOracle.setAssetPrice(ondoInstantManager.rwaToken(), 0x6194f8a6903775000);
         assertGt(stakePool.getDelegated(USDC), usdcAmount);
         uint256 usdcAmountAfterRewards = stakePool.getDelegated(USDC);
         console.log("Delegated amount after rewards: ", usdcAmountAfterRewards);
