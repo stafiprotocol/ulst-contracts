@@ -179,7 +179,8 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             if (!unstakesOfUser[msg.sender].remove(unstakeIndex)) revert AlreadyWithdrawed();
 
             totalWithdrawAmount = totalWithdrawAmount + unstakeInfo.amount;
-            totalWithdrawAmountOf[unstakeInfo.stablecoin] = totalWithdrawAmountOf[unstakeInfo.stablecoin] + unstakeInfo.amount;
+            totalWithdrawAmountOf[unstakeInfo.stablecoin] =
+                totalWithdrawAmountOf[unstakeInfo.stablecoin] + unstakeInfo.amount;
             emitUnstakeIndexList[i] = int256(unstakeIndex);
         }
         if (totalWithdrawAmount <= 0) revert ZeroWithdrawAmount();
@@ -242,7 +243,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             poolInfo.era = latestEra;
             // newReward
             uint256 newPoolActive = pool.getDelegated(stablecoins.at(0));
-            uint256 poolNewReward =  (newPoolActive - totalBond) - (poolInfo.active - totalUnbond);
+            uint256 poolNewReward = (newPoolActive - totalBond) - (poolInfo.active - totalUnbond);
             emit NewReward(address(pool), poolNewReward);
             newTotalReward = newTotalReward + poolNewReward;
 

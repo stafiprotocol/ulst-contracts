@@ -18,6 +18,7 @@ abstract contract StakePoolManager is Ownable {
         mapping(address /* stablecoin */ => uint256 /* unbond */) unbondOf;
         mapping(address /* stablecoin */ => uint256 /* active */) activeOf;
     }
+
     uint256 public minStakeAmount;
 
     EnumerableSet.AddressSet bondedPools;

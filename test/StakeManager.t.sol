@@ -62,7 +62,7 @@ contract StakeManagerTest is MyTest {
 
         uint256 unstakeAmount = stakeAmount;
         lsdToken.approve(address(stakeManager), unstakeAmount);
-        stakeManager.unstake(USDC,unstakeAmount);
+        stakeManager.unstake(USDC, unstakeAmount);
         assertEq(lsdToken.balanceOf(address(this)), 0);
 
         console.log("Test stake_unstake_withdraw completed successfully!");
@@ -89,7 +89,7 @@ contract StakeManagerTest is MyTest {
         airdropUSDC(address(this), stakeAmount);
 
         IERC20(USDC).safeIncreaseAllowance(address(stakeManager), stakeAmount);
-        stakeManager.stake(USDC,stakeAmount);
+        stakeManager.stake(USDC, stakeAmount);
 
         assertEq(lsdToken.balanceOf(address(this)), stakeAmount);
         assertEq(stakeManager.latestEra(), 0);
