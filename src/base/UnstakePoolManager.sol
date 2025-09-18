@@ -17,6 +17,7 @@ abstract contract UnstakePoolManager is Ownable {
         address stablecoin;
         address receiver;
         uint256 amount;
+        uint256 targetFullfilledAmount;
     }
 
     uint256 public constant UNSTAKE_TIMES_LIMIT = 100;

@@ -44,8 +44,11 @@ contract FactoryTest is MyTest {
         string memory tokenName = "Test LSD Token";
         string memory tokenSymbol = "TLSD";
 
+        address[] memory stablecoins = new address[](2);
+        stablecoins[0] = USDC;
+        stablecoins[1] = PYUSD;
         // Create the LSD network using real contract addresses
-        factory.createLsdNetwork(tokenName, tokenSymbol, OUSG_INSTANT_MANAGER, ONDO_ORACLE, USDC);
+        factory.createLsdNetwork(tokenName, tokenSymbol, OUSG_INSTANT_MANAGER, ONDO_ORACLE, stablecoins);
 
         // Verify the LSD token was created and stored
         address[] memory createdTokens = factory.lsdTokensOfCreater(address(this));

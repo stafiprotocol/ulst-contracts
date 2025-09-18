@@ -22,7 +22,7 @@ contract StakePoolTest is MyTest {
     uint256 usdcAmount = 50_000e6;
 
     function setUp() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")));
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 23373728);
 
         stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
         stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);
@@ -39,6 +39,28 @@ contract StakePoolTest is MyTest {
         stakePool.delegate(USDC, usdcAmount);
         assertGe(stakePool.getDelegated(USDC), usdcAmount - 100); // 100 is for calculation loss
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
+
+        stakePool.undelegate(USDC, usdcAmount);
+        uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
+        assertGe(receivedUsdcAmount, usdcAmount - 100); // 100 is for calculation loss
+        assertEq(stakePool.getDelegated(USDC), 0);
+
+        stakePool.withdrawForStaker(USDC, address(this), receivedUsdcAmount);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
+        assertGe(IERC20(USDC).balanceOf(address(this)), receivedUsdcAmount);
+
+        console.log("Test completed successfully!");
+    }
+
+    function test_stake_pool_with_pyusd() public {
+        airdropPYUSD(address(stakePool), usdcAmount);
+        assertEq(IERC20(PYUSD).balanceOf(address(stakePool)), usdcAmount);
+        assertEq(stakePool.getDelegated(PYUSD), 0);
+
+        vm.startPrank(manager);
+        stakePool.delegate(PYUSD, usdcAmount);
+        assertGe(stakePool.getDelegated(PYUSD), usdcAmount - 100); // 100 is for calculation loss
+        assertEq(IERC20(PYUSD).balanceOf(address(stakePool)), 0);
 
         stakePool.undelegate(USDC, usdcAmount);
         uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));

@@ -103,10 +103,10 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress,
-        address _stablecoin
+        address[] memory _stablecoins
     ) external override {
         _createLsdNetwork(
-            _lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, _stablecoin, msg.sender
+            _lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, _stablecoins, msg.sender
         );
     }
 
@@ -115,13 +115,13 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress,
-        address _stablecoin,
+        address[] memory _stablecoins,
         uint256 minDelay,
         address[] memory proposers
     ) external override {
         address networkAdmin = address(new Timelock(minDelay, proposers, proposers, msg.sender));
         _createLsdNetwork(
-            _lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, _stablecoin, networkAdmin
+            _lsdTokenName, _lsdTokenSymbol, _govInstantManagerAddress, _govOracleAddress, _stablecoins, networkAdmin
         );
     }
 
@@ -132,7 +132,7 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         string memory _lsdTokenSymbol,
         address _govInstantManagerAddress,
         address _govOracleAddress,
-        address _stablecoin,
+        address[] memory _stablecoins,
         address _networkAdmin
     ) private {
         NetworkContracts memory contracts = deployNetworkContracts(_lsdTokenName, _lsdTokenSymbol);
@@ -158,8 +158,8 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
                 StakeManager.initialize.selector,
                 contracts._lsdToken,
                 contracts._stakePool,
-                _stablecoin,
                 _networkAdmin,
+                _stablecoins,
                 this
             )
         );

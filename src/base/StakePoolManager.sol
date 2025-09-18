@@ -12,11 +12,12 @@ abstract contract StakePoolManager is Ownable {
 
     struct PoolInfo {
         uint256 era;
-        uint256 bond;
-        uint256 unbond;
         uint256 active;
+        mapping(address /* stablecoin */ => uint256 /* fullfilled withdrawal amount */) fullfilledWithdrawalAmountOf;
+        mapping(address /* stablecoin */ => uint256 /* bond */) bondOf;
+        mapping(address /* stablecoin */ => uint256 /* unbond */) unbondOf;
+        mapping(address /* stablecoin */ => uint256 /* active */) activeOf;
     }
-
     uint256 public minStakeAmount;
 
     EnumerableSet.AddressSet bondedPools;
