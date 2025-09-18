@@ -139,7 +139,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         uint256 willUseUnstakeIndex = nextUnstakeIndex;
         nextUnstakeIndex = willUseUnstakeIndex + 1;
 
-        tokenAmount = tokenAmount / 100 * 100; // round down
+        tokenAmount = tokenAmount - 100; // calculation loss
         unstakeAtIndex[willUseUnstakeIndex] = UnstakeInfo({
             era: currentEra(),
             pool: _poolAddress,
