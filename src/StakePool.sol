@@ -77,8 +77,15 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     // ------------ stakeManager ------------
 
     function delegate(address _depositToken, uint256 _amount) external override onlyStakeManager returns (uint256) {
+        if (ondoInstantManager.subscribePaused()) return 0;
+
+        uint256 depositUSDValue =
+            (ondoOracle.getAssetPrice(_depositToken) * _amount) / 10 ** IERC20Metadata(_depositToken).decimals();
+        if (depositUSDValue < ondoInstantManager.minimumDepositUSD()) return 0;
+
         // TODO: calc minimumRwaReceived before delegate
         uint256 minimumRwaReceived = 0;
+
         IERC20(_depositToken).safeIncreaseAllowance(address(ondoInstantManager), _amount);
         return ondoInstantManager.subscribe(_depositToken, _amount, minimumRwaReceived);
     }
@@ -89,6 +96,12 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         onlyStakeManager
         returns (uint256)
     {
+        if (ondoInstantManager.redeemPaused()) return 0;
+
+        uint256 receivingTokenUSDValue = (ondoOracle.getAssetPrice(_receivingToken) * _undelegateAmount)
+            / 10 ** IERC20Metadata(_receivingToken).decimals();
+        if (receivingTokenUSDValue < ondoInstantManager.minimumRedemptionUSD()) return 0;
+
         address rwaToken = ondoInstantManager.rwaToken();
         uint256 receivingTokenPrice = ondoOracle.getAssetPrice(_receivingToken);
         uint256 rwaTokenPrice = ondoOracle.getAssetPrice(rwaToken);
@@ -96,9 +109,11 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         uint256 usdValue = (receivingTokenPrice * _undelegateAmount) / 10 ** IERC20Metadata(_receivingToken).decimals();
         uint256 rwaAmount = (usdValue * ondoInstantManager.RWA_NORMALIZER()) / rwaTokenPrice;
 
-        IERC20(rwaToken).safeIncreaseAllowance(address(ondoInstantManager), rwaAmount);
+        // TODO: calc minimumTokenReceived before undelegate
+        uint256 minimumTokenReceived = 0;
 
-        return ondoInstantManager.redeem(rwaAmount, _receivingToken, _undelegateAmount - 100);
+        IERC20(rwaToken).safeIncreaseAllowance(address(ondoInstantManager), rwaAmount);
+        return ondoInstantManager.redeem(rwaAmount, _receivingToken, minimumTokenReceived);
     }
 
     function withdrawForStaker(address _receivingToken, address _staker, uint256 _amount)

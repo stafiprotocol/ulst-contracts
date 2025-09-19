@@ -52,6 +52,28 @@ contract StakePoolTest is MyTest {
         console.log("Test completed successfully!");
     }
 
+    function test_stake_pool_with_pyusd() public {
+        airdropPYUSD(address(stakePool), usdcAmount);
+        assertEq(IERC20(PYUSD).balanceOf(address(stakePool)), usdcAmount);
+        assertEq(stakePool.getDelegated(PYUSD), 0);
+
+        vm.startPrank(manager);
+        stakePool.delegate(PYUSD, usdcAmount);
+        assertGe(stakePool.getDelegated(PYUSD), usdcAmount - 100); // 100 is for calculation loss
+        assertEq(IERC20(PYUSD).balanceOf(address(stakePool)), 0);
+
+        stakePool.undelegate(USDC, usdcAmount);
+        uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
+        assertGe(receivedUsdcAmount, usdcAmount - 100); // 100 is for calculation loss
+        assertEq(stakePool.getDelegated(USDC), 0);
+
+        stakePool.withdrawForStaker(USDC, address(this), receivedUsdcAmount);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
+        assertGe(IERC20(USDC).balanceOf(address(this)), receivedUsdcAmount);
+
+        console.log("Test completed successfully!");
+    }
+
     function test_stake_pool_with_rewards() public {
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
         assertEq(stakePool.getDelegated(USDC), 0);
