@@ -22,7 +22,7 @@ contract StakePoolTest is MyTest {
     uint256 usdcAmount = 50_000e6;
 
     function setUp() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")), 23373728);
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/eth")));
 
         stakePool = StakePool(address(new ERC1967Proxy(address(new StakePool()), "")));
         stakePool.initialize(manager, OUSG_INSTANT_MANAGER, ONDO_ORACLE, admin);

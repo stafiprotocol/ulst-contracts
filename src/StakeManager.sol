@@ -222,22 +222,34 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
                 uint256 bond = poolInfo.bondOf[stablecoin];
                 uint256 unbond = poolInfo.unbondOf[stablecoin];
 
+                bool resetBondAndUnbond = true;
                 // bond or unbond
                 if (bond > unbond) {
                     uint256 needDelegate = bond - unbond;
                     uint256 pre = pool.getDelegated(stablecoins.at(0));
-                    pool.delegate(stablecoin, needDelegate);
+                    uint256 delegated = pool.delegate(stablecoin, needDelegate);
                     totalBond = totalBond + (pool.getDelegated(stablecoins.at(0)) - pre);
+                    if (delegated == 0) {
+                        poolInfo.bondOf[stablecoin] = bond - unbond;
+                        poolInfo.unbondOf[stablecoin] = 0;
+                        resetBondAndUnbond = false;
+                    }
                 } else if (bond < unbond) {
                     uint256 needUndelegate = unbond - bond;
                     uint256 pre = pool.getDelegated(stablecoins.at(0));
-                    pool.undelegate(stablecoin, needUndelegate);
+                    uint256 undelegated = pool.undelegate(stablecoin, needUndelegate);
                     totalUnbond = totalUnbond + (pre - pool.getDelegated(stablecoins.at(0)));
+                    if (undelegated == 0) {
+                        poolInfo.bondOf[stablecoin] = 0;
+                        poolInfo.unbondOf[stablecoin] = unbond - bond;
+                        resetBondAndUnbond = false;
+                    }
                 }
 
-                // update pool state
-                poolInfo.bondOf[stablecoin] = 0;
-                poolInfo.unbondOf[stablecoin] = 0;
+                if (resetBondAndUnbond) {
+                    poolInfo.bondOf[stablecoin] = 0;
+                    poolInfo.unbondOf[stablecoin] = 0;
+                }
             }
 
             poolInfo.era = latestEra;
