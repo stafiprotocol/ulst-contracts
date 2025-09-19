@@ -16,13 +16,25 @@ abstract contract StakePoolManager is Ownable {
         mapping(address /* stablecoin */ => uint256 /* fullfilled withdrawal amount */) fullfilledWithdrawalAmountOf;
         mapping(address /* stablecoin */ => uint256 /* bond */) bondOf;
         mapping(address /* stablecoin */ => uint256 /* unbond */) unbondOf;
-        mapping(address /* stablecoin */ => uint256 /* active */) activeOf;
     }
 
     uint256 public minStakeAmount;
 
     EnumerableSet.AddressSet bondedPools;
     mapping(address => PoolInfo) public poolInfoOf;
+
+    function getPoolInfoByStablecoin(address _poolAddress, address _stablecoin)
+        public
+        view
+        virtual
+        returns (uint256 fullfilledWithdrawalAmount, uint256 bond, uint256 unbond)
+    {
+        return (
+            poolInfoOf[_poolAddress].fullfilledWithdrawalAmountOf[_stablecoin],
+            poolInfoOf[_poolAddress].bondOf[_stablecoin],
+            poolInfoOf[_poolAddress].unbondOf[_stablecoin]
+        );
+    }
 
     function getBondedPools() public view virtual returns (address[] memory pools) {
         return bondedPools.values();
