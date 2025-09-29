@@ -153,7 +153,7 @@ contract StakeManagerTest is MyTest {
                 stakePool.payMissingUnbondingFee(_stablecoins, _amounts);
             }
         }
-        
+
         // 4.1 pass unbonding duration
         for (uint256 i = 1; i < stakeManager.unbondingDuration(); i++) {
             vm.warp(block.timestamp + stakeManager.eraSeconds());
@@ -167,7 +167,7 @@ contract StakeManagerTest is MyTest {
 
         console.log("Test newEra completed successfully!");
     }
-    
+
     function test_unstakeFee() public {
         address[] memory stablecoins = new address[](2);
         stablecoins[0] = USDC;
