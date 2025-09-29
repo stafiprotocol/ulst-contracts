@@ -21,10 +21,10 @@ abstract contract Protocol is Ownable {
     address public factoryAddress;
     uint256 public factoryFeeCommission;
 
-    uint256 public unbondingFee;
+    uint256 public unstakeFee;
 
-    function setUnbondingFee(uint256 _unbondingFee) external virtual onlyOwner {
-        unbondingFee = _unbondingFee;
+    function setUnstakeFee(uint256 _unstakeFee) external virtual onlyOwner {
+        unstakeFee = _unstakeFee;
     }
 
     function withdrawProtocolFee(address _to) external virtual onlyOwner {

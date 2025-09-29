@@ -128,7 +128,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
         if (unstakesOfUser[msg.sender].length() >= UNSTAKE_TIMES_LIMIT) revert UnstakeTimesExceedLimit();
 
-        uint256 fee = (_lsdTokenAmount * unbondingFee) / 1e18;
+        uint256 fee = (_lsdTokenAmount * unstakeFee) / 1e18;
         if (fee > 0) {
             IERC20(lsdToken).safeTransferFrom(msg.sender, address(this), fee);
         }
