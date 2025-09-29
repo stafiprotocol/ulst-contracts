@@ -11,6 +11,7 @@ abstract contract MyTest is Test {
     address constant ONDO_Registry = 0xcf6958D69d535FD03BD6Df3F4fe6CDcd127D97df;
     address constant ONDO_ORACLE = 0x9Cad45a8BF0Ed41Ff33074449B357C7a1fAb4094;
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address constant PYUSD = 0x6c3ea9036406852006290770BEdFcAbA0e23A0e8;
     IOndoInstantManager public ondoInstantManager = IOndoInstantManager(OUSG_INSTANT_MANAGER);
 
     function airdropUSDC(address to, uint256 amount) internal {
@@ -18,6 +19,13 @@ abstract contract MyTest is Test {
         vm.prank(usdc.masterMinter());
         usdc.configureMinter(address(this), type(uint256).max);
         usdc.mint(to, amount);
+    }
+
+    function airdropPYUSD(address to, uint256 amount) internal {
+        ITestPYUSD pyusd = ITestPYUSD(PYUSD);
+        ISupplyControl supplyControl = pyusd.supplyControl();
+        vm.prank(supplyControl.getAllSupplyControllerAddresses()[0]);
+        pyusd.mint(to, amount);
     }
 
     function mockIDRegistry() internal {
@@ -32,8 +40,26 @@ abstract contract MyTest is Test {
         vm.etch(ONDO_ORACLE, address(ondoOracleImpl).code);
         mockOndoOracle = MockOndoOracle(ONDO_ORACLE);
         mockOndoOracle.setAssetPrice(USDC, 1000000000000000000);
+        mockOndoOracle.setAssetPrice(PYUSD, 1000000000000000000);
         mockOndoOracle.setAssetPrice(ondoInstantManager.rwaToken(), 0x619234f3380033000);
     }
+}
+
+interface ISupplyControl {
+    function getAllSupplyControllerAddresses() external view returns (address[] memory);
+}
+
+interface ITestPYUSD {
+    function mint(address to, uint256 amount) external;
+    function supplyControl() external view returns (ISupplyControl);
+
+    error AccountMissingSupplyControllerRole(address account);
+    error AccountAlreadyHasSupplyControllerRole(address account);
+    error CannotMintToAddress(address supplyController, address mintToAddress);
+    error CannotBurnFromAddress(address supplyController, address burnFromAddress);
+    error CannotAddDuplicateAddress(address addressToAdd);
+    error CannotRemoveNonExistantAddress(address addressToRemove);
+    error ZeroAddress();
 }
 
 interface IOndoIDRegistry {

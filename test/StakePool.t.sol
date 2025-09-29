@@ -31,7 +31,7 @@ contract StakePoolTest is MyTest {
         mockOracle();
     }
 
-    function test_stake_pool() public {
+    function test_delegate_undelegate_withdraw() public {
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
         assertEq(stakePool.getDelegated(USDC), 0);
 
@@ -39,6 +39,39 @@ contract StakePoolTest is MyTest {
         stakePool.delegate(USDC, usdcAmount);
         assertGe(stakePool.getDelegated(USDC), usdcAmount - 100); // 100 is for calculation loss
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
+
+        stakePool.undelegate(USDC, usdcAmount);
+        assertEq(stakePool.getDelegated(USDC), 0);
+
+        uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
+        assertGe(receivedUsdcAmount + stakePool.totalMissingUnbondingFee(USDC), usdcAmount);
+
+        // pay missing unbonding fee
+        address[] memory stablecoins = new address[](1);
+        stablecoins[0] = USDC;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = stakePool.totalMissingUnbondingFee(USDC);
+        IERC20(USDC).safeIncreaseAllowance(address(stakePool), stakePool.totalMissingUnbondingFee(USDC));
+        stakePool.payMissingUnbondingFee(stablecoins, amounts);
+        assertEq(stakePool.totalMissingUnbondingFee(USDC), 0);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
+
+        stakePool.withdrawForStaker(USDC, address(this), usdcAmount);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
+        assertGe(IERC20(USDC).balanceOf(address(this)), usdcAmount);
+
+        console.log("Test completed successfully!");
+    }
+
+    function test_stake_pool_with_pyusd() public {
+        airdropPYUSD(address(stakePool), usdcAmount);
+        assertEq(IERC20(PYUSD).balanceOf(address(stakePool)), usdcAmount);
+        assertEq(stakePool.getDelegated(PYUSD), 0);
+
+        vm.startPrank(manager);
+        stakePool.delegate(PYUSD, usdcAmount);
+        assertGe(stakePool.getDelegated(PYUSD), usdcAmount - 100); // 100 is for calculation loss
+        assertEq(IERC20(PYUSD).balanceOf(address(stakePool)), 0);
 
         stakePool.undelegate(USDC, usdcAmount);
         uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));

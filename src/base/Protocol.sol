@@ -21,6 +21,12 @@ abstract contract Protocol is Ownable {
     address public factoryAddress;
     uint256 public factoryFeeCommission;
 
+    uint256 public unstakeFee;
+
+    function setUnstakeFee(uint256 _unstakeFee) external virtual onlyOwner {
+        unstakeFee = _unstakeFee;
+    }
+
     function withdrawProtocolFee(address _to) external virtual onlyOwner {
         IERC20(lsdToken).safeTransfer(_to, IERC20(lsdToken).balanceOf(address(this)));
     }

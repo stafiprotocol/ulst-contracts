@@ -12,4 +12,5 @@ interface Errors {
     error ValidatorsLenExceedLimit();
     error ValidatorsEmpty();
     error CommissionRateInvalid();
+    error LengthNotMatch();
 }
