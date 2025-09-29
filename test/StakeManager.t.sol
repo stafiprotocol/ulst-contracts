@@ -51,6 +51,7 @@ contract StakeManagerTest is MyTest {
         ILsdNetworkFactory.NetworkContracts memory contracts = factory.getNetworkContracts(createdTokens[0]);
         LsdToken lsdToken = LsdToken(contracts._lsdToken);
         StakeManager stakeManager = StakeManager(contracts._stakeManager);
+        StakePool stakePool = StakePool(contracts._stakePool);
 
         uint256 stakeAmount = 50_000e6;
         airdropUSDC(address(this), stakeAmount);
@@ -64,6 +65,17 @@ contract StakeManagerTest is MyTest {
         lsdToken.approve(address(stakeManager), unstakeAmount);
         stakeManager.unstake(USDC, unstakeAmount);
         assertEq(lsdToken.balanceOf(address(this)), 0);
+
+        uint256 unbondingDuration = stakeManager.unbondingDuration();
+        for (uint256 i = 0; i < unbondingDuration; i++) {
+            vm.warp(block.timestamp + stakeManager.eraSeconds());
+            stakeManager.newEra();
+            assertEq(stakeManager.latestEra(), i + 1);
+        }
+
+        stakeManager.withdraw();
+        assertEq(IERC20(USDC).balanceOf(address(this)), stakeAmount);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
 
         console.log("Test stake_unstake_withdraw completed successfully!");
     }
@@ -127,6 +139,21 @@ contract StakeManagerTest is MyTest {
         assertGt(IERC20(PYUSD).balanceOf(address(stakePool)), stakeAmount);
         assertEq(stakeManager.latestEra(), 3);
 
+        // 3.3 pay missing unbonding fee
+        {
+            uint256 missingAmount = stakePool.totalMissingUnbondingFee(PYUSD);
+            if (missingAmount > 0) {
+                airdropPYUSD(address(this), missingAmount);
+                IERC20(PYUSD).safeIncreaseAllowance(address(stakePool), missingAmount);
+
+                address[] memory _stablecoins = new address[](1);
+                _stablecoins[0] = PYUSD;
+                uint256[] memory _amounts = new uint256[](1);
+                _amounts[0] = missingAmount;
+                stakePool.payMissingUnbondingFee(_stablecoins, _amounts);
+            }
+        }
+        
         // 4.1 pass unbonding duration
         for (uint256 i = 1; i < stakeManager.unbondingDuration(); i++) {
             vm.warp(block.timestamp + stakeManager.eraSeconds());
@@ -139,5 +166,48 @@ contract StakeManagerTest is MyTest {
         assertLe(IERC20(PYUSD).balanceOf(address(stakePool)), 100);
 
         console.log("Test newEra completed successfully!");
+    }
+    
+    function test_unbondingFee() public {
+        address[] memory stablecoins = new address[](2);
+        stablecoins[0] = USDC;
+        stablecoins[1] = PYUSD;
+        factory.createLsdNetwork("Test LSD Token", "TLSD", OUSG_INSTANT_MANAGER, ONDO_ORACLE, stablecoins);
+        address[] memory createdTokens = factory.lsdTokensOfCreater(address(this));
+        assertEq(createdTokens.length, 1);
+
+        ILsdNetworkFactory.NetworkContracts memory contracts = factory.getNetworkContracts(createdTokens[0]);
+        LsdToken lsdToken = LsdToken(contracts._lsdToken);
+        StakeManager stakeManager = StakeManager(contracts._stakeManager);
+        StakePool stakePool = StakePool(contracts._stakePool);
+        stakeManager.setUnbondingFee(1e14); // 0.01%
+
+        uint256 stakeAmount = 50_000e6;
+        airdropUSDC(address(this), stakeAmount);
+
+        IERC20(USDC).safeIncreaseAllowance(address(stakeManager), stakeAmount);
+        stakeManager.stake(USDC, stakeAmount);
+
+        assertEq(lsdToken.balanceOf(address(this)), stakeAmount);
+
+        uint256 unstakeAmount = stakeAmount;
+        lsdToken.approve(address(stakeManager), unstakeAmount);
+        stakeManager.unstake(USDC, unstakeAmount);
+        assertEq(lsdToken.balanceOf(address(this)), 0);
+
+        uint256 unbondingDuration = stakeManager.unbondingDuration();
+        for (uint256 i = 0; i < unbondingDuration; i++) {
+            vm.warp(block.timestamp + stakeManager.eraSeconds());
+            stakeManager.newEra();
+            assertEq(stakeManager.latestEra(), i + 1);
+        }
+
+        stakeManager.withdraw();
+        uint256 unbondingFee = stakeAmount * 1e14 / 1e18;
+        console.log("unbondingFee: ", unbondingFee);
+        assertEq(IERC20(USDC).balanceOf(address(this)), stakeAmount - unbondingFee);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), unbondingFee);
+
+        console.log("Test unbondingFee completed successfully!");
     }
 }

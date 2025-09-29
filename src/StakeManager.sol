@@ -43,11 +43,13 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         address stablecoin,
         uint256 tokenAmount,
         uint256 lsdTokenAmount,
+        uint256 fee,
         uint256 unstakeIndex
     );
     event Withdraw(address staker, address poolAddress, int256[] unstakeIndexList);
     event ExecuteNewEra(uint256 indexed era, uint256 rate);
     event NewReward(address poolAddress, uint256 newReward);
+    event GovRedeemFee(address pool, address stablecoin, uint256 amount);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -126,6 +128,12 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
         if (unstakesOfUser[msg.sender].length() >= UNSTAKE_TIMES_LIMIT) revert UnstakeTimesExceedLimit();
 
+        uint256 fee = (_lsdTokenAmount * unbondingFee) / 1e18;
+        if (fee > 0) {
+            IERC20(lsdToken).safeTransferFrom(msg.sender, address(this), fee);
+        }
+        _lsdTokenAmount = _lsdTokenAmount - fee;
+
         uint256 tokenAmount = (_lsdTokenAmount * rate) / 1e18;
 
         // update pool
@@ -139,7 +147,6 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         uint256 willUseUnstakeIndex = nextUnstakeIndex;
         nextUnstakeIndex = willUseUnstakeIndex + 1;
 
-        tokenAmount = tokenAmount - 100; // calculation loss
         unstakeAtIndex[willUseUnstakeIndex] = UnstakeInfo({
             era: currentEra(),
             pool: _poolAddress,
@@ -150,7 +157,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         });
         unstakesOfUser[msg.sender].add(willUseUnstakeIndex);
 
-        emit Unstake(msg.sender, _poolAddress, _stablecoin, tokenAmount, _lsdTokenAmount, willUseUnstakeIndex);
+        emit Unstake(msg.sender, _poolAddress, _stablecoin, tokenAmount, _lsdTokenAmount, fee, willUseUnstakeIndex);
     }
 
     mapping(address => uint256) private totalWithdrawAmountOf;
@@ -243,6 +250,12 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
                         poolInfo.bondOf[stablecoin] = 0;
                         poolInfo.unbondOf[stablecoin] = unbond - bond;
                         resetBondAndUnbond = false;
+                    } else {
+                        uint256 redeemFee = 0;
+                        if (needUndelegate > undelegated) {
+                            redeemFee = needUndelegate - undelegated;
+                        }
+                        emit GovRedeemFee(address(pool), stablecoin, redeemFee);
                     }
                 }
 

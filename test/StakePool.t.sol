@@ -31,7 +31,7 @@ contract StakePoolTest is MyTest {
         mockOracle();
     }
 
-    function test_stake_pool() public {
+    function test_delegate_undelegate_withdraw() public {
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
         assertEq(stakePool.getDelegated(USDC), 0);
 
@@ -41,13 +41,24 @@ contract StakePoolTest is MyTest {
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
 
         stakePool.undelegate(USDC, usdcAmount);
-        uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
-        assertGe(receivedUsdcAmount, usdcAmount - 100); // 100 is for calculation loss
         assertEq(stakePool.getDelegated(USDC), 0);
 
-        stakePool.withdrawForStaker(USDC, address(this), receivedUsdcAmount);
+        uint256 receivedUsdcAmount = IERC20(USDC).balanceOf(address(stakePool));
+        assertGe(receivedUsdcAmount + stakePool.totalMissingUnbondingFee(USDC), usdcAmount);
+
+        // pay missing unbonding fee
+        address[] memory stablecoins = new address[](1);
+        stablecoins[0] = USDC;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = stakePool.totalMissingUnbondingFee(USDC);
+        IERC20(USDC).safeIncreaseAllowance(address(stakePool), stakePool.totalMissingUnbondingFee(USDC));
+        stakePool.payMissingUnbondingFee(stablecoins, amounts);
+        assertEq(stakePool.totalMissingUnbondingFee(USDC), 0);
+        assertEq(IERC20(USDC).balanceOf(address(stakePool)), usdcAmount);
+
+        stakePool.withdrawForStaker(USDC, address(this), usdcAmount);
         assertEq(IERC20(USDC).balanceOf(address(stakePool)), 0);
-        assertGe(IERC20(USDC).balanceOf(address(this)), receivedUsdcAmount);
+        assertGe(IERC20(USDC).balanceOf(address(this)), usdcAmount);
 
         console.log("Test completed successfully!");
     }
