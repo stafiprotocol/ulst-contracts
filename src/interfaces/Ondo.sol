@@ -14,14 +14,12 @@ interface IOndoInstantManager {
     function rwaToken() external view returns (address);
 
     function RWA_NORMALIZER() external view returns (uint256);
+    function minimumDepositUSD() external view returns (uint256);
+    function minimumRedemptionUSD() external view returns (uint256);
+    function subscribePaused() external view returns (bool);
+    function redeemPaused() external view returns (bool);
 }
 
 interface IOndoOracle {
     function getAssetPrice(address token) external view returns (uint256 price);
-}
-
-interface IOndoFees {
-    function getAndUpdateFee(address rwaToken, address stablecoin, bytes32 userID, uint256 usdValue)
-        external
-        returns (uint256 usdFee);
 }
