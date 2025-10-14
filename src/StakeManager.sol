@@ -28,12 +28,14 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     error NotEnoughAmountToUndelegate();
     error StablecoinDuplicated(address stablecoin);
     error StablecoinNotExist(address stablecoin);
+    error UnstakePausedError();
 
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
     EnumerableSet.AddressSet private stablecoins;
+    bool public isUnstakePaused;
 
     // events
     event Stake(address staker, address poolAddress, address stablecoin, uint256 tokenAmount, uint256 lsdTokenAmount);
@@ -50,6 +52,8 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     event ExecuteNewEra(uint256 indexed era, uint256 rate);
     event NewReward(address poolAddress, uint256 newReward);
     event GovRedeemFee(address pool, address stablecoin, uint256 amount);
+    event UnstakePaused(address account);
+    event UnstakeUnpaused(address account);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -63,6 +67,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         address[] memory _stablecoins,
         address _factoryAddress
     ) external virtual initializer {
+        isUnstakePaused = true;
         _transferOwnership(_owner);
         _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 4, 0);
         for (uint256 i = 0; i < _stablecoins.length; ++i) {
@@ -71,6 +76,11 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+
+    modifier whenUnstakeNotPaused() {
+        if (isUnstakePaused) revert UnstakePausedError();
+        _;
+    }
 
     // ------------ getter ------------
 
@@ -88,6 +98,15 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
 
     function rmStablecoin(address _stablecoin) external onlyOwner {
         if (!stablecoins.remove(_stablecoin)) revert StablecoinNotExist(_stablecoin);
+    }
+
+    function setIsUnstakePaused(bool _isUnstakePaused) external onlyOwner {
+        isUnstakePaused = _isUnstakePaused;
+        if (_isUnstakePaused) {
+            emit UnstakePaused(msg.sender);
+        } else {
+            emit UnstakeUnpaused(msg.sender);
+        }
     }
 
     // ----- staker operation
@@ -123,7 +142,10 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         emit Stake(msg.sender, _poolAddress, _stablecoin, _stakeAmount, lsdTokenAmount);
     }
 
-    function unstakeWithPool(address _poolAddress, address _stablecoin, uint256 _lsdTokenAmount) public {
+    function unstakeWithPool(address _poolAddress, address _stablecoin, uint256 _lsdTokenAmount)
+        public
+        whenUnstakeNotPaused
+    {
         if (_lsdTokenAmount == 0) revert ZeroUnstakeAmount();
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
         if (unstakesOfUser[msg.sender].length() >= UNSTAKE_TIMES_LIMIT) revert UnstakeTimesExceedLimit();

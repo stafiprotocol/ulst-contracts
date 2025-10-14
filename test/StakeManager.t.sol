@@ -40,6 +40,36 @@ contract StakeManagerTest is MyTest {
         mockOracle();
     }
 
+    function test_pause_unstake() public {
+        address[] memory stablecoins = new address[](2);
+        stablecoins[0] = USDC;
+        stablecoins[1] = PYUSD;
+        factory.createLsdNetwork("Test LSD Token", "TLSD", OUSG_INSTANT_MANAGER, ONDO_ORACLE, stablecoins);
+        address[] memory createdTokens = factory.lsdTokensOfCreater(address(this));
+
+        ILsdNetworkFactory.NetworkContracts memory contracts = factory.getNetworkContracts(createdTokens[0]);
+        StakeManager stakeManager = StakeManager(contracts._stakeManager);
+        LsdToken lsdToken = LsdToken(contracts._lsdToken);
+
+        uint256 stakeAmount = 50_000e6;
+        airdropUSDC(address(this), stakeAmount);
+        IERC20(USDC).safeIncreaseAllowance(address(stakeManager), stakeAmount);
+        stakeManager.stake(USDC, stakeAmount);
+        uint256 unstakeAmount = stakeAmount;
+        lsdToken.approve(address(stakeManager), unstakeAmount);
+
+        // unstake should be paused at default
+        assertEq(stakeManager.isUnstakePaused(), true);
+        vm.expectRevert(StakeManager.UnstakePausedError.selector);
+        stakeManager.unstake(USDC, unstakeAmount);
+        assertEq(lsdToken.balanceOf(address(this)), stakeAmount);
+
+        stakeManager.setIsUnstakePaused(false);
+        assertEq(stakeManager.isUnstakePaused(), false);
+        stakeManager.unstake(USDC, unstakeAmount);
+        assertEq(lsdToken.balanceOf(address(this)), 0);
+    }
+
     function test_stake_unstake_withdraw() public {
         address[] memory stablecoins = new address[](2);
         stablecoins[0] = USDC;
@@ -51,6 +81,8 @@ contract StakeManagerTest is MyTest {
         ILsdNetworkFactory.NetworkContracts memory contracts = factory.getNetworkContracts(createdTokens[0]);
         LsdToken lsdToken = LsdToken(contracts._lsdToken);
         StakeManager stakeManager = StakeManager(contracts._stakeManager);
+        stakeManager.setIsUnstakePaused(false);
+
         StakePool stakePool = StakePool(contracts._stakePool);
 
         uint256 stakeAmount = 50_000e6;
@@ -94,6 +126,7 @@ contract StakeManagerTest is MyTest {
         console.log("stakeManager.owner(): ", stakeManager.owner());
         console.log("address(this): ", address(this));
         stakeManager.setEraParams(stakeManager.MIN_ERA_SECONDS(), block.timestamp / stakeManager.MIN_ERA_SECONDS());
+        stakeManager.setIsUnstakePaused(false);
 
         StakePool stakePool = StakePool(contracts._stakePool);
 
@@ -181,6 +214,7 @@ contract StakeManagerTest is MyTest {
         StakeManager stakeManager = StakeManager(contracts._stakeManager);
         StakePool stakePool = StakePool(contracts._stakePool);
         stakeManager.setUnstakeFee(1e14); // 0.01%
+        stakeManager.setIsUnstakePaused(false);
 
         uint256 stakeAmount = 50_000e6;
         airdropUSDC(address(this), stakeAmount);
