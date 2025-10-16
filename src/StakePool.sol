@@ -58,6 +58,16 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
+    function setGovInstantManager(address _govInstantManagerAddress) external onlyOwner {
+        if (_govInstantManagerAddress == address(0)) revert AddressNotAllowed();
+        ondoInstantManager = IOndoInstantManager(_govInstantManagerAddress);
+    }
+
+    function setGovOracle(address _govOracleAddress) external onlyOwner {
+        if (_govOracleAddress == address(0)) revert AddressNotAllowed();
+        ondoOracle = IOndoOracle(_govOracleAddress);
+    }
+
     // ------------ getter ------------
 
     function version() external view returns (uint64) {
