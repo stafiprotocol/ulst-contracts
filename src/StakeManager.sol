@@ -9,7 +9,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/IStakePool.sol";
 import "./interfaces/ILsdToken.sol";
 import "./base/Manager.sol";
-import {IOndoOracle} from "./interfaces/Ondo.sol";
 
 contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     // Custom errors to provide more descriptive revert messages.
@@ -69,7 +68,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     ) external virtual initializer {
         isUnstakePaused = true;
         _transferOwnership(_owner);
-        _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 4, 0);
+        _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 1, 0);
         for (uint256 i = 0; i < _stablecoins.length; ++i) {
             if (!stablecoins.add(_stablecoins[i])) revert StablecoinDuplicated(_stablecoins[i]);
         }

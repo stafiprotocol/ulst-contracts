@@ -13,10 +13,6 @@ import "./interfaces/ILsdNetworkFactory.sol";
 contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory {
     using SafeERC20 for IERC20;
 
-    address public govStakeManagerAddress;
-    address public govOracleAddress;
-    address public stakeTokenAddress;
-
     address public stakeManagerLogicAddress;
     address public stakePoolLogicAddress;
 
@@ -37,22 +33,15 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         _disableInitializers();
     }
 
-    function initialize(
-        address _factoryAdmin,
-        address _govStakeManagerAddress,
-        address _govOracleAddress,
-        address _stakeTokenAddress,
-        address _stakeManagerLogicAddress,
-        address _stakePoolLogicAddress
-    ) external initializer {
+    function initialize(address _factoryAdmin, address _stakeManagerLogicAddress, address _stakePoolLogicAddress)
+        external
+        initializer
+    {
         if (_factoryAdmin == address(0)) {
             revert AddressNotAllowed();
         }
 
         factoryAdmin = _factoryAdmin;
-        govStakeManagerAddress = _govStakeManagerAddress;
-        govOracleAddress = _govOracleAddress;
-        stakeTokenAddress = _stakeTokenAddress;
         stakeManagerLogicAddress = _stakeManagerLogicAddress;
         stakePoolLogicAddress = _stakePoolLogicAddress;
     }

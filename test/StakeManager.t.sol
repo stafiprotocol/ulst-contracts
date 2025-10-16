@@ -32,9 +32,7 @@ contract StakeManagerTest is MyTest {
         factory = LsdNetworkFactory(address(new ERC1967Proxy(address(factoryLogic), "")));
 
         // Initialize factory with all required parameters
-        factory.initialize(
-            admin, OUSG_INSTANT_MANAGER, ONDO_ORACLE, USDC, address(stakeManagerLogic), address(stakePoolLogic)
-        );
+        factory.initialize(admin, address(stakeManagerLogic), address(stakePoolLogic));
 
         mockIDRegistry();
         mockOracle();
