@@ -49,6 +49,8 @@ contract StakeManagerTest is MyTest {
         StakeManager stakeManager = StakeManager(contracts._stakeManager);
         LsdToken lsdToken = LsdToken(contracts._lsdToken);
 
+        assertEq(lsdToken.decimals(), 6);
+
         uint256 stakeAmount = 50_000e6;
         airdropUSDC(address(this), stakeAmount);
         IERC20(USDC).safeIncreaseAllowance(address(stakeManager), stakeAmount);

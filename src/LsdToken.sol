@@ -26,6 +26,10 @@ contract LsdToken is ERC20Burnable, ILsdToken, IRateProvider {
     // Construct
     constructor(string memory _name, string memory _symbol) ERC20(_name, _symbol) {}
 
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
+
     function getRate() public view override returns (uint256) {
         return IRateProvider(minter).getRate();
     }
