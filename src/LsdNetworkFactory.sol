@@ -22,10 +22,14 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
     mapping(address => uint256) public totalClaimedLsdToken;
 
     modifier onlyFactoryAdmin() {
+        _onlyFactoryAdmin();
+        _;
+    }
+
+    function _onlyFactoryAdmin() internal view {
         if (msg.sender != factoryAdmin) {
             revert CallerNotAllowed();
         }
-        _;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -129,29 +133,31 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
         networkContractsOfLsdToken[contracts._lsdToken] = contracts;
         lsdTokensOf[msg.sender].push(contracts._lsdToken);
 
-        (bool success, bytes memory data) = contracts._stakePool.call(
-            abi.encodeWithSelector(
-                StakePool.initialize.selector,
-                contracts._stakeManager,
-                _govInstantManagerAddress,
-                _govOracleAddress,
-                _networkAdmin
-            )
-        );
+        (bool success, bytes memory data) = contracts._stakePool
+            .call(
+                abi.encodeWithSelector(
+                    StakePool.initialize.selector,
+                    contracts._stakeManager,
+                    _govInstantManagerAddress,
+                    _govOracleAddress,
+                    _networkAdmin
+                )
+            );
         if (!success) {
             revert FailedToCall();
         }
 
-        (success, data) = contracts._stakeManager.call(
-            abi.encodeWithSelector(
-                StakeManager.initialize.selector,
-                contracts._lsdToken,
-                contracts._stakePool,
-                _networkAdmin,
-                _stablecoins,
-                this
-            )
-        );
+        (success, data) = contracts._stakeManager
+            .call(
+                abi.encodeWithSelector(
+                    StakeManager.initialize.selector,
+                    contracts._lsdToken,
+                    contracts._stakePool,
+                    _networkAdmin,
+                    _stablecoins,
+                    this
+                )
+            );
         if (!success) {
             revert FailedToCall();
         }
@@ -178,6 +184,8 @@ contract LsdNetworkFactory is Initializable, UUPSUpgradeable, ILsdNetworkFactory
 
         address lsdToken = address(new LsdToken(_lsdTokenName, _lsdTokenSymbol));
 
-        return NetworkContracts(stakeManager, stakePool, lsdToken, block.number);
+        return NetworkContracts({
+            _stakeManager: stakeManager, _stakePool: stakePool, _lsdToken: lsdToken, _block: block.number
+        });
     }
 }

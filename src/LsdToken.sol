@@ -17,10 +17,14 @@ contract LsdToken is ERC20Burnable, ILsdToken, IRateProvider {
     address public minter;
 
     modifier onlyMinter() {
+        _onlyMinter();
+        _;
+    }
+
+    function _onlyMinter() internal view {
         if (msg.sender != minter) {
             revert CallerNotAllowed();
         }
-        _;
     }
 
     // Construct

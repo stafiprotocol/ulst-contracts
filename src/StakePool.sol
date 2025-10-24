@@ -27,8 +27,12 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     mapping(address => uint256) public totalMissingUnbondingFee;
 
     modifier onlyStakeManager() {
-        if (stakeManagerAddress != msg.sender) revert CallerNotAllowed();
+        _onlyStakeManager();
         _;
+    }
+
+    function _onlyStakeManager() internal view {
+        if (stakeManagerAddress != msg.sender) revert CallerNotAllowed();
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -108,8 +112,8 @@ contract StakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     {
         if (ondoInstantManager.redeemPaused()) return 0;
 
-        uint256 receivingTokenUSDValue = (ondoOracle.getAssetPrice(_receivingToken) * _undelegateAmount)
-            / 10 ** IERC20Metadata(_receivingToken).decimals();
+        uint256 receivingTokenUSDValue = (ondoOracle.getAssetPrice(_receivingToken) * _undelegateAmount) / 10
+            ** IERC20Metadata(_receivingToken).decimals();
         if (receivingTokenUSDValue < ondoInstantManager.minimumRedemptionUSD()) return 0;
 
         address rwaToken = ondoInstantManager.rwaToken();

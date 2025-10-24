@@ -7,7 +7,6 @@ import {StakePool} from "../src/StakePool.sol";
 import {LsdToken} from "../src/LsdToken.sol";
 import {LsdNetworkFactory} from "../src/LsdNetworkFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {IOndoInstantManager, IOndoOracle} from "../src/interfaces/Ondo.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ILsdNetworkFactory} from "../src/interfaces/ILsdNetworkFactory.sol";
 import {MyTest} from "./MyTest.sol";
@@ -57,6 +56,8 @@ contract StakeManagerTest is MyTest {
         stakeManager.stake(USDC, stakeAmount);
         uint256 unstakeAmount = stakeAmount;
         lsdToken.approve(address(stakeManager), unstakeAmount);
+
+        assertEq(stakeManager.nextUnstakeIndex(), 1);
 
         // unstake should be paused at default
         assertEq(stakeManager.isUnstakePaused(), true);

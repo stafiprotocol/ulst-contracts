@@ -10,13 +10,21 @@ abstract contract Ownable is Errors, Initializable {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     modifier onlyOwner() {
-        if (owner() != msg.sender) revert CallerNotAllowed();
+        _onlyOwner();
         _;
     }
 
+    function _onlyOwner() internal view {
+        if (owner() != msg.sender) revert CallerNotAllowed();
+    }
+
     modifier onlyOwnerOrInitializing() {
-        if (!_isInitializing() && owner() != msg.sender) revert CallerNotAllowed();
+        _onlyOwnerOrInitializing();
         _;
+    }
+
+    function _onlyOwnerOrInitializing() internal view {
+        if (!_isInitializing() && owner() != msg.sender) revert CallerNotAllowed();
     }
 
     /**

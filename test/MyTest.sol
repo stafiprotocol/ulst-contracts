@@ -67,7 +67,15 @@ interface IOndoIDRegistry {
 }
 
 contract MockIOndoIDRegistry is IOndoIDRegistry {
-    function getRegisteredID(address, /* rwaToken */ address /* user */ ) external pure returns (bytes32 userID) {
+    function getRegisteredID(
+        address,
+        /* rwaToken */
+        address /* user */
+    )
+        external
+        pure
+        returns (bytes32 userID)
+    {
         return bytes32(0x4f55534700000000ea17b6d53c96e90000000000000000000000000000000000);
     }
 }

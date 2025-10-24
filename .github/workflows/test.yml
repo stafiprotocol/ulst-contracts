@@ -23,7 +23,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.1.0
+          version: v1.4.3
 
       - name: Show Forge version
         run: |
@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Forge build
         run: |
-          forge build
+          forge build --optimize --optimizer-runs 200
         id: build
 
       - name: Run Forge tests

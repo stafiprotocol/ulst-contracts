@@ -47,7 +47,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         uint256 fee,
         uint256 unstakeIndex
     );
-    event Withdraw(address staker, address poolAddress, int256[] unstakeIndexList);
+    event Withdraw(address staker, address poolAddress, uint256[] unstakeIndexList);
     event ExecuteNewEra(uint256 indexed era, uint256 rate);
     event NewReward(address poolAddress, uint256 newReward);
     event GovRedeemFee(address pool, address stablecoin, uint256 amount);
@@ -66,6 +66,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         address[] memory _stablecoins,
         address _factoryAddress
     ) external virtual initializer {
+        nextUnstakeIndex = 1;
         isUnstakePaused = true;
         _transferOwnership(_owner);
         _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 1, 0);
@@ -77,8 +78,12 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     modifier whenUnstakeNotPaused() {
-        if (isUnstakePaused) revert UnstakePausedError();
+        _whenUnstakeNotPaused();
         _;
+    }
+
+    function _whenUnstakeNotPaused() internal view {
+        if (isUnstakePaused) revert UnstakePausedError();
     }
 
     // ------------ getter ------------
@@ -186,7 +191,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     function withdrawWithPool(address _poolAddress) public {
         uint256[] memory unstakeIndexList = getUnstakeIndexListOf(msg.sender);
         uint256 length = unstakesOfUser[msg.sender].length();
-        int256[] memory emitUnstakeIndexList = new int256[](length);
+        uint256[] memory emitUnstakeIndexList = new uint256[](length);
 
         PoolInfo storage poolInfo = poolInfoOf[_poolAddress];
 
@@ -196,11 +201,11 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             uint256 unstakeIndex = unstakeIndexList[i];
             UnstakeInfo memory unstakeInfo = unstakeAtIndex[unstakeIndex];
             if (unstakeInfo.era + unbondingDuration > curEra || unstakeInfo.pool != _poolAddress) {
-                emitUnstakeIndexList[i] = -1;
+                emitUnstakeIndexList[i] = 0;
                 continue;
             }
             if (unstakeInfo.targetFullfilledAmount < poolInfo.fullfilledWithdrawalAmountOf[unstakeInfo.stablecoin]) {
-                emitUnstakeIndexList[i] = -1;
+                emitUnstakeIndexList[i] = 0;
                 continue;
             }
 
@@ -209,7 +214,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             totalWithdrawAmount = totalWithdrawAmount + unstakeInfo.amount;
             totalWithdrawAmountOf[unstakeInfo.stablecoin] =
                 totalWithdrawAmountOf[unstakeInfo.stablecoin] + unstakeInfo.amount;
-            emitUnstakeIndexList[i] = int256(unstakeIndex);
+            emitUnstakeIndexList[i] = unstakeIndex;
         }
         if (totalWithdrawAmount <= 0) revert ZeroWithdrawAmount();
 
