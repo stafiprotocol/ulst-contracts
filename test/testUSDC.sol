@@ -7,4 +7,5 @@ interface ITestUSDC {
     function mint(address to, uint256 amount) external;
     function configureMinter(address minter, uint256 minterAllowedAmount) external;
     function masterMinter() external view returns (address);
+    function owner() external view returns (address);
 }
