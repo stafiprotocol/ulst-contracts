@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import {AaveStakePool} from "../src/AaveStakePool.sol";
+import {IAavePool, ReserveDataLegacy} from "../src/interfaces/Aave.sol";
 import {StakeManager} from "../src/StakeManager.sol";
 import {LsdToken} from "../src/LsdToken.sol";
 import {LsdNetworkFactory} from "../src/LsdNetworkFactory.sol";
@@ -13,13 +14,13 @@ export PRIVATE_KEY=0xXXXXX
 export LSD_TOKEN_NAME=Test LSD Token
 export LSD_TOKEN_SYMBOL=TLSD
 
-forge script script/DeployAave.s.sol \
+forge script DeployAaveScript \
     --rpc-url <RPC_URL> \
     --broadcast --optimize --optimizer-runs 200 \
     --verify --etherscan-api-key <ETHERSCAN_API_KEY> \
  */
 
-contract DeployScript is Script {
+contract DeployAaveScript is Script {
     function run() external {
         string memory lsdTokenName = vm.envString("LSD_TOKEN_NAME");
         string memory lsdTokenSymbol = vm.envString("LSD_TOKEN_SYMBOL");
@@ -33,14 +34,16 @@ contract DeployScript is Script {
         }
 
         address aavePoolAddress = 0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2;
-        address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-        address aUSDT = 0x23878914EFE38d27C4D67Ab83ed1b93A74D4086a;
+        address asset = 0xdAC17F958D2ee523a2206206994597C13D831ec7; // USDT
         if (block.chainid == 11155111) {
             // Sepolia
             aavePoolAddress = 0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951;
-            USDT = 0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0;
-            aUSDT = 0x9844386d29EEd970B9F6a2B9a676083b0478210e;
+            asset = 0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5; // LINK
         }
+
+        ReserveDataLegacy memory reserveData = IAavePool(aavePoolAddress).getReserveData(asset);
+        address aTokenAddress = reserveData.aTokenAddress;
+        console.log("aToken address:", aTokenAddress);
 
         StakeManager stakeManager = StakeManager(address(new ERC1967Proxy(address(new StakeManager()), "")));
         AaveStakePool stakePool = AaveStakePool(address(new ERC1967Proxy(address(new AaveStakePool()), "")));
@@ -48,11 +51,10 @@ contract DeployScript is Script {
         lsdToken.initMinter(address(stakeManager));
 
         address[] memory stablecoins = new address[](1);
-        stablecoins[0] = USDT;
+        stablecoins[0] = asset;
         stakeManager.initialize(address(lsdToken), address(stakePool), admin, stablecoins, admin);
 
         stakePool.initialize(address(stakeManager), aavePoolAddress, admin);
-        stakePool.setStablecoinToAaveToken(USDT, address(aUSDT));
 
         console.log("StakeManager deployed at:", address(stakeManager));
         console.log("StakePool deployed at:", address(stakePool));

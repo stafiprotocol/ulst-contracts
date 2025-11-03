@@ -38,7 +38,6 @@ contract AaveStakeManagerTest is MyTest {
         stablecoins[0] = USDT;
         stakePool.initialize(address(stakeManager), aavePoolAddress, admin);
         vm.prank(admin);
-        stakePool.setStablecoinToAaveToken(USDT, address(aUSDT));
         stakeManager.initialize(address(lsdToken), address(stakePool), admin, stablecoins, fakeFactory);
     }
 

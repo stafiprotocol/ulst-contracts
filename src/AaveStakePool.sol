@@ -8,7 +8,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "./interfaces/Ondo.sol";
 import "./base/Ownable.sol";
 import "./interfaces/IStakePool.sol";
-import {IAavePool} from "./interfaces/Aave.sol";
+import {IAavePool, ReserveDataLegacy} from "./interfaces/Aave.sol";
 
 contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     // Custom errors to provide more descriptive revert messages.
@@ -25,7 +25,6 @@ contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     address public stakeManagerAddress;
     IAavePool public aavePool;
     uint16 referralCode = 0;
-    mapping(address => address) public stablecoinToAaveToken;
 
     modifier onlyStakeManager() {
         _onlyStakeManager();
@@ -51,11 +50,6 @@ contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         _transferOwnership(_owner);
     }
 
-    function setStablecoinToAaveToken(address _stablecoin, address _aaveToken) external onlyOwner {
-        if (_stablecoin == address(0) || _aaveToken == address(0)) revert AddressNotAllowed();
-        stablecoinToAaveToken[_stablecoin] = _aaveToken;
-    }
-
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function setAavePool(address _aavePoolAddress) external onlyOwner {
@@ -70,7 +64,8 @@ contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     }
 
     function getDelegated(address _stablecoin) external view override returns (uint256) {
-        return IERC20(stablecoinToAaveToken[_stablecoin]).balanceOf(address(this));
+        ReserveDataLegacy memory reserveData = aavePool.getReserveData(_stablecoin);
+        return IERC20(reserveData.aTokenAddress).balanceOf(address(this));
     }
 
     // ------------ stakeManager ------------
@@ -87,7 +82,8 @@ contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         onlyStakeManager
         returns (uint256)
     {
-        IERC20(stablecoinToAaveToken[_receivingToken]).safeIncreaseAllowance(address(aavePool), _undelegateAmount);
+        ReserveDataLegacy memory reserveData = aavePool.getReserveData(_receivingToken);
+        IERC20(reserveData.aTokenAddress).safeIncreaseAllowance(address(aavePool), _undelegateAmount);
         aavePool.withdraw(_receivingToken, _undelegateAmount, address(this));
         return _undelegateAmount;
     }
