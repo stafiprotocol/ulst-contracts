@@ -38,7 +38,7 @@ contract AaveStakePoolTest is MyTest {
     }
 
     function test_sepolia_usdt_exceed_supply_cap() public {
-        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/sepolia")), 9548875);
+        vm.createSelectFork(vm.envOr("RPC_URL", string("https://1rpc.io/sepolia")));
 
         user = 0xa9b8af5C53E6282fB469297091A33B08B5AC40B7;
         IAavePool aavePool = IAavePool(0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951);
