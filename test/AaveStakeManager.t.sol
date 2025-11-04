@@ -5,10 +5,8 @@ import {console} from "forge-std/Test.sol";
 import {StakeManager} from "../src/StakeManager.sol";
 import {AaveStakePool} from "../src/AaveStakePool.sol";
 import {LsdToken} from "../src/LsdToken.sol";
-import {LsdNetworkFactory} from "../src/LsdNetworkFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {SafeERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ILsdNetworkFactory} from "../src/interfaces/ILsdNetworkFactory.sol";
 import {MyTest} from "./MyTest.sol";
 
 contract AaveStakeManagerTest is MyTest {
@@ -49,8 +47,6 @@ contract AaveStakeManagerTest is MyTest {
         uint256 unstakeAmount = stakeAmount;
         lsdToken.approve(address(stakeManager), unstakeAmount);
 
-        assertEq(stakeManager.nextUnstakeIndex(), 1);
-
         // unstake should be paused at default
         assertEq(stakeManager.isUnstakePaused(), true);
 
@@ -83,15 +79,6 @@ contract AaveStakeManagerTest is MyTest {
         lsdToken.approve(address(stakeManager), unstakeAmount);
         stakeManager.unstake(USDT, unstakeAmount);
         assertEq(lsdToken.balanceOf(user), 0);
-
-        uint256 unbondingDuration = stakeManager.unbondingDuration();
-        for (uint256 i = 0; i < unbondingDuration; i++) {
-            vm.warp(block.timestamp + stakeManager.eraSeconds());
-            stakeManager.newEra();
-            assertEq(stakeManager.latestEra(), i + 1);
-        }
-
-        stakeManager.withdraw();
         assertEq(IERC20(USDT).balanceOf(user), stakeAmount);
         assertEq(IERC20(USDT).balanceOf(address(stakePool)), 0);
 
@@ -120,7 +107,7 @@ contract AaveStakeManagerTest is MyTest {
         assertEq(stakePool.getDelegated(USDT), 0);
         assertEq(IERC20(USDT).balanceOf(address(stakePool)), stakeAmount);
 
-        // 1. delegate to ondo
+        // 1. delegate to aave
         vm.warp(block.timestamp + stakeManager.eraSeconds());
         stakeManager.newEra();
         assertEq(stakeManager.latestEra(), 1);
@@ -133,30 +120,18 @@ contract AaveStakeManagerTest is MyTest {
         assertGt(stakeManager.rate(), 1e18);
         console.log("new rate after rewards: ", stakeManager.rate());
 
-        // 3.1 unstake
+        // 3 unstake
         uint256 lstAmount = lsdToken.balanceOf(user);
         lsdToken.approve(address(stakeManager), lstAmount);
         stakeManager.unstake(USDT, lstAmount);
         assertEq(lsdToken.balanceOf(user), 0);
         assertEq(IERC20(USDT).balanceOf(address(stakePool)), 0);
+        assertGt(IERC20(USDT).balanceOf(user), stakeAmount);
 
-        // 3.2 redeem from aave
+        // 4 create a new era
         vm.warp(block.timestamp + stakeManager.eraSeconds());
         stakeManager.newEra();
-        assertGt(IERC20(USDT).balanceOf(address(stakePool)), stakeAmount);
         assertEq(stakeManager.latestEra(), 3);
-
-        // 4.1 pass unbonding duration
-        for (uint256 i = 1; i < stakeManager.unbondingDuration(); i++) {
-            vm.warp(block.timestamp + stakeManager.eraSeconds());
-            stakeManager.newEra();
-            assertEq(stakeManager.latestEra(), i + 3);
-        }
-
-        // 4.2 withdraw
-        stakeManager.withdraw();
-        assertGt(IERC20(USDT).balanceOf(user), stakeAmount);
-        assertEq(IERC20(USDT).balanceOf(address(stakePool)), 0);
 
         console.log("Test newEra completed successfully!");
     }

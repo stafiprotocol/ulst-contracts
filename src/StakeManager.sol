@@ -21,13 +21,13 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
     error NotEnoughStakeAmount();
     error ZeroUnstakeAmount();
     error ZeroWithdrawAmount();
-    error UnstakeTimesExceedLimit();
     error AlreadyWithdrawed();
     error EraNotMatch();
     error NotEnoughAmountToUndelegate();
     error StablecoinDuplicated(address stablecoin);
     error StablecoinNotExist(address stablecoin);
     error UnstakePausedError();
+    error UnbondingFailed(uint256 needUndelegate);
 
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -38,16 +38,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
 
     // events
     event Stake(address staker, address poolAddress, address stablecoin, uint256 tokenAmount, uint256 lsdTokenAmount);
-    event Unstake(
-        address staker,
-        address poolAddress,
-        address stablecoin,
-        uint256 tokenAmount,
-        uint256 lsdTokenAmount,
-        uint256 fee,
-        uint256 unstakeIndex
-    );
-    event Withdraw(address staker, address poolAddress, uint256[] unstakeIndexList);
+    event Unstake(address staker, address poolAddress, address stablecoin, uint256 tokenAmount, uint256 lsdTokenAmount);
     event ExecuteNewEra(uint256 indexed era, uint256 rate);
     event NewReward(address poolAddress, uint256 newReward);
     event GovRedeemFee(address pool, address stablecoin, uint256 amount);
@@ -66,10 +57,9 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         address[] memory _stablecoins,
         address _factoryAddress
     ) external virtual initializer {
-        nextUnstakeIndex = 1;
         isUnstakePaused = true;
         _transferOwnership(_owner);
-        _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 1, 0);
+        _initManagerParams(_lsdToken, _poolAddress, _factoryAddress, 0);
         for (uint256 i = 0; i < _stablecoins.length; ++i) {
             if (!stablecoins.add(_stablecoins[i])) revert StablecoinDuplicated(_stablecoins[i]);
         }
@@ -123,10 +113,6 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         unstakeWithPool(bondedPools.at(0), _stablecoin, _lsdTokenAmount);
     }
 
-    function withdraw() external {
-        withdrawWithPool(bondedPools.at(0));
-    }
-
     function stakeWithPool(address _poolAddress, address _stablecoin, uint256 _stakeAmount) public {
         if (_stakeAmount < minStakeAmount) revert NotEnoughStakeAmount();
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
@@ -150,84 +136,43 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
         public
         whenUnstakeNotPaused
     {
+        if (IStakePool(_poolAddress).undelegatePaused(_stablecoin)) revert UnstakePausedError();
         if (_lsdTokenAmount == 0) revert ZeroUnstakeAmount();
         if (!bondedPools.contains(_poolAddress)) revert PoolNotExist(_poolAddress);
-        if (unstakesOfUser[msg.sender].length() >= UNSTAKE_TIMES_LIMIT) revert UnstakeTimesExceedLimit();
-
-        uint256 fee = (_lsdTokenAmount * unstakeFee) / 1e18;
-        if (fee > 0) {
-            IERC20(lsdToken).safeTransferFrom(msg.sender, address(this), fee);
-        }
-        _lsdTokenAmount = _lsdTokenAmount - fee;
 
         uint256 tokenAmount = (_lsdTokenAmount * rate) / 1e18;
 
         // update pool
         PoolInfo storage poolInfo = poolInfoOf[_poolAddress];
-        poolInfo.unbondOf[_stablecoin] = poolInfo.unbondOf[_stablecoin] + tokenAmount;
 
         // burn lsdToken
         ERC20Burnable(lsdToken).burnFrom(msg.sender, _lsdTokenAmount);
 
-        // unstake info
-        uint256 willUseUnstakeIndex = nextUnstakeIndex;
-        nextUnstakeIndex = willUseUnstakeIndex + 1;
+        if (tokenAmount <= poolInfo.bondOf[_stablecoin]) {
+            poolInfo.bondOf[_stablecoin] = poolInfo.bondOf[_stablecoin] - tokenAmount;
+        } else {
+            uint256 needUndelegate = tokenAmount - poolInfo.bondOf[_stablecoin];
+            uint256 pre = IStakePool(_poolAddress).getDelegated(stablecoins.at(0));
+            uint256 undelegated = IStakePool(_poolAddress).undelegate(_stablecoin, needUndelegate);
+            if (undelegated == 0) {
+                revert UnbondingFailed(needUndelegate);
+            } else {
+                uint256 unstakeValue = pre - IStakePool(_poolAddress).getDelegated(stablecoins.at(0));
+                poolInfo.active = poolInfo.active - unstakeValue;
+                poolInfo.bondOf[_stablecoin] = 0;
 
-        unstakeAtIndex[willUseUnstakeIndex] = UnstakeInfo({
-            era: currentEra(),
-            pool: _poolAddress,
-            stablecoin: _stablecoin,
-            receiver: msg.sender,
-            amount: tokenAmount,
-            targetFullfilledAmount: poolInfo.fullfilledWithdrawalAmountOf[_stablecoin] + tokenAmount
-        });
-        unstakesOfUser[msg.sender].add(willUseUnstakeIndex);
-
-        emit Unstake(msg.sender, _poolAddress, _stablecoin, tokenAmount, _lsdTokenAmount, fee, willUseUnstakeIndex);
-    }
-
-    mapping(address => uint256) private totalWithdrawAmountOf;
-
-    function withdrawWithPool(address _poolAddress) public {
-        uint256[] memory unstakeIndexList = getUnstakeIndexListOf(msg.sender);
-        uint256 length = unstakesOfUser[msg.sender].length();
-        uint256[] memory emitUnstakeIndexList = new uint256[](length);
-
-        PoolInfo storage poolInfo = poolInfoOf[_poolAddress];
-
-        uint256 totalWithdrawAmount;
-        uint256 curEra = currentEra();
-        for (uint256 i = 0; i < length; ++i) {
-            uint256 unstakeIndex = unstakeIndexList[i];
-            UnstakeInfo memory unstakeInfo = unstakeAtIndex[unstakeIndex];
-            if (unstakeInfo.era + unbondingDuration > curEra || unstakeInfo.pool != _poolAddress) {
-                emitUnstakeIndexList[i] = 0;
-                continue;
+                uint256 redeemFee = 0;
+                if (needUndelegate > undelegated) {
+                    redeemFee = needUndelegate - undelegated;
+                }
+                tokenAmount = tokenAmount - redeemFee;
+                emit GovRedeemFee(_poolAddress, _stablecoin, redeemFee);
             }
-            if (unstakeInfo.targetFullfilledAmount < poolInfo.fullfilledWithdrawalAmountOf[unstakeInfo.stablecoin]) {
-                emitUnstakeIndexList[i] = 0;
-                continue;
-            }
-
-            if (!unstakesOfUser[msg.sender].remove(unstakeIndex)) revert AlreadyWithdrawed();
-
-            totalWithdrawAmount = totalWithdrawAmount + unstakeInfo.amount;
-            totalWithdrawAmountOf[unstakeInfo.stablecoin] =
-                totalWithdrawAmountOf[unstakeInfo.stablecoin] + unstakeInfo.amount;
-            emitUnstakeIndexList[i] = unstakeIndex;
         }
-        if (totalWithdrawAmount <= 0) revert ZeroWithdrawAmount();
 
-        for (uint256 i = 0; i < stablecoins.length(); ++i) {
-            address stablecoin = stablecoins.at(i);
-            uint256 amount = totalWithdrawAmountOf[stablecoin];
-            if (amount <= 0) continue;
-            totalWithdrawAmountOf[stablecoin] = 0;
+        IStakePool(_poolAddress).withdrawForStaker(_stablecoin, msg.sender, tokenAmount);
 
-            IStakePool(_poolAddress).withdrawForStaker(stablecoin, msg.sender, amount);
-
-            emit Withdraw(msg.sender, _poolAddress, emitUnstakeIndexList);
-        }
+        emit Unstake(msg.sender, _poolAddress, _stablecoin, tokenAmount, _lsdTokenAmount);
     }
 
     // ----- permissionless
@@ -246,55 +191,27 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             IStakePool pool = IStakePool(poolList[i]);
             PoolInfo storage poolInfo = poolInfoOf[address(pool)];
 
-            uint256 totalUnbond = 0;
             uint256 totalBond = 0;
 
             for (uint256 j = 0; j < stablecoins.length(); ++j) {
                 address stablecoin = stablecoins.at(j);
 
-                uint256 bond = poolInfo.bondOf[stablecoin];
-                uint256 unbond = poolInfo.unbondOf[stablecoin];
-
-                bool resetBondAndUnbond = true;
-                // bond or unbond
-                if (bond > unbond) {
-                    uint256 needDelegate = bond - unbond;
+                uint256 needBond = poolInfo.bondOf[stablecoin];
+                uint256 delegated = 0;
+                if (needBond > 0) {
                     uint256 pre = pool.getDelegated(stablecoins.at(0));
-                    uint256 delegated = pool.delegate(stablecoin, needDelegate);
+                    delegated = pool.delegate(stablecoin, needBond);
                     totalBond = totalBond + (pool.getDelegated(stablecoins.at(0)) - pre);
-                    if (delegated == 0) {
-                        poolInfo.bondOf[stablecoin] = bond - unbond;
-                        poolInfo.unbondOf[stablecoin] = 0;
-                        resetBondAndUnbond = false;
-                    }
-                } else if (bond < unbond) {
-                    uint256 needUndelegate = unbond - bond;
-                    uint256 pre = pool.getDelegated(stablecoins.at(0));
-                    uint256 undelegated = pool.undelegate(stablecoin, needUndelegate);
-                    totalUnbond = totalUnbond + (pre - pool.getDelegated(stablecoins.at(0)));
-                    if (undelegated == 0) {
+                    if (delegated > 0) {
                         poolInfo.bondOf[stablecoin] = 0;
-                        poolInfo.unbondOf[stablecoin] = unbond - bond;
-                        resetBondAndUnbond = false;
-                    } else {
-                        uint256 redeemFee = 0;
-                        if (needUndelegate > undelegated) {
-                            redeemFee = needUndelegate - undelegated;
-                        }
-                        emit GovRedeemFee(address(pool), stablecoin, redeemFee);
                     }
-                }
-
-                if (resetBondAndUnbond) {
-                    poolInfo.bondOf[stablecoin] = 0;
-                    poolInfo.unbondOf[stablecoin] = 0;
                 }
             }
 
             poolInfo.era = latestEra;
             // newReward
             uint256 newPoolActive = pool.getDelegated(stablecoins.at(0));
-            uint256 poolNewReward = (newPoolActive - totalBond) - (poolInfo.active - totalUnbond);
+            uint256 poolNewReward = newPoolActive - totalBond - poolInfo.active;
             emit NewReward(address(pool), poolNewReward);
             newTotalReward = newTotalReward + poolNewReward;
 

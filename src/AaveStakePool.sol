@@ -17,14 +17,13 @@ contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
     event Delegate(address pool, address stablecoin, uint256 amount);
     event Undelegate(address pool, address rwaToken, uint256 amount);
     event WithdrawForStaker(address staker, address receivingToken, uint256 amount);
-    event MissingUnbondingFee(address stablecoin, uint256 amount);
-    event PayMissingUnbondingFee(address payer, address stablecoin, uint256 amount);
 
     using SafeERC20 for IERC20;
 
     address public stakeManagerAddress;
     IAavePool public aavePool;
     uint16 referralCode = 0;
+    uint256 internal constant PAUSED_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFFF; // prettier-ignore
 
     modifier onlyStakeManager() {
         _onlyStakeManager();
@@ -74,6 +73,11 @@ contract AaveStakePool is Initializable, UUPSUpgradeable, Ownable, IStakePool {
         IERC20(_depositToken).safeIncreaseAllowance(address(aavePool), _amount);
         aavePool.supply(_depositToken, _amount, address(this), referralCode);
         return _amount;
+    }
+
+    function undelegatePaused(address _receivingToken) external view returns (bool) {
+        ReserveDataLegacy memory reserveData = aavePool.getReserveData(_receivingToken);
+        return (reserveData.configuration & ~PAUSED_MASK) != 0;
     }
 
     function undelegate(address _receivingToken, uint256 _undelegateAmount)

@@ -6,7 +6,6 @@ import {AaveStakePool} from "../src/AaveStakePool.sol";
 import {IAavePool, ReserveDataLegacy} from "../src/interfaces/Aave.sol";
 import {StakeManager} from "../src/StakeManager.sol";
 import {LsdToken} from "../src/LsdToken.sol";
-import {LsdNetworkFactory} from "../src/LsdNetworkFactory.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /*

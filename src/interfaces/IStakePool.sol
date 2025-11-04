@@ -6,4 +6,5 @@ interface IStakePool {
     function undelegate(address receivingToken, uint256 claimAmount) external returns (uint256);
     function withdrawForStaker(address receivingToken, address staker, uint256 amount) external;
     function getDelegated(address stablecoin) external view returns (uint256);
+    function undelegatePaused(address stablecoin) external view returns (bool);
 }

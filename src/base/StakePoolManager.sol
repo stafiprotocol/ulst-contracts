@@ -13,9 +13,7 @@ abstract contract StakePoolManager is Ownable {
     struct PoolInfo {
         uint256 era;
         uint256 active;
-        mapping(address /* stablecoin */ => uint256 /* fullfilled withdrawal amount */) fullfilledWithdrawalAmountOf;
         mapping(address /* stablecoin */ => uint256 /* bond */) bondOf;
-        mapping(address /* stablecoin */ => uint256 /* unbond */) unbondOf;
     }
 
     uint256 public minStakeAmount;
@@ -27,13 +25,9 @@ abstract contract StakePoolManager is Ownable {
         public
         view
         virtual
-        returns (uint256 fullfilledWithdrawalAmount, uint256 bond, uint256 unbond)
+        returns (uint256 bond)
     {
-        return (
-            poolInfoOf[_poolAddress].fullfilledWithdrawalAmountOf[_stablecoin],
-            poolInfoOf[_poolAddress].bondOf[_stablecoin],
-            poolInfoOf[_poolAddress].unbondOf[_stablecoin]
-        );
+        return poolInfoOf[_poolAddress].bondOf[_stablecoin];
     }
 
     function getBondedPools() public view virtual returns (address[] memory pools) {
