@@ -157,16 +157,14 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             if (undelegated == 0) {
                 revert UnbondingFailed(needUndelegate);
             } else {
-                uint256 unstakeValue = pre - IStakePool(_poolAddress).getDelegated(stablecoins.at(0));
-                poolInfo.active = poolInfo.active - unstakeValue;
+                poolInfo.active = IStakePool(_poolAddress).getDelegated(stablecoins.at(0));
                 poolInfo.bondOf[_stablecoin] = 0;
 
-                uint256 redeemFee = 0;
                 if (needUndelegate > undelegated) {
-                    redeemFee = needUndelegate - undelegated;
+                    uint256 redeemFee = needUndelegate - undelegated;
+                    tokenAmount = tokenAmount - redeemFee;
+                    emit GovRedeemFee(_poolAddress, _stablecoin, redeemFee);
                 }
-                tokenAmount = tokenAmount - redeemFee;
-                emit GovRedeemFee(_poolAddress, _stablecoin, redeemFee);
             }
         }
 
