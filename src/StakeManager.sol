@@ -152,7 +152,6 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             poolInfo.bondOf[_stablecoin] = poolInfo.bondOf[_stablecoin] - tokenAmount;
         } else {
             uint256 needUndelegate = tokenAmount - poolInfo.bondOf[_stablecoin];
-            uint256 pre = IStakePool(_poolAddress).getDelegated(stablecoins.at(0));
             uint256 undelegated = IStakePool(_poolAddress).undelegate(_stablecoin, needUndelegate);
             if (undelegated == 0) {
                 revert UnbondingFailed(needUndelegate);
