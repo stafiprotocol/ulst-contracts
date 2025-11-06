@@ -156,7 +156,7 @@ contract StakeManager is Initializable, Manager, UUPSUpgradeable {
             if (undelegated == 0) {
                 revert UnbondingFailed(needUndelegate);
             } else {
-                poolInfo.active = IStakePool(_poolAddress).getDelegated(stablecoins.at(0));
+                poolInfo.active = poolInfo.active - needUndelegate;
                 poolInfo.bondOf[_stablecoin] = 0;
 
                 if (needUndelegate > undelegated) {
