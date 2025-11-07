@@ -21,15 +21,6 @@ abstract contract StakePoolManager is Ownable {
     EnumerableSet.AddressSet bondedPools;
     mapping(address => PoolInfo) public poolInfoOf;
 
-    function getPoolInfoByStablecoin(address _poolAddress, address _stablecoin)
-        public
-        view
-        virtual
-        returns (uint256 bond)
-    {
-        return poolInfoOf[_poolAddress].bondOf[_stablecoin];
-    }
-
     function getBondedPools() public view virtual returns (address[] memory pools) {
         return bondedPools.values();
     }
